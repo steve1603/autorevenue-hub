@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createHash } from 'crypto'
 
+// Route segment config: the App Router way to set the function timeout.
+// Vercel's `functions` glob in vercel.json does not apply to route handlers.
+export const maxDuration = 30
+
 // In-memory storage for demo (use database in production)
 const urlDatabase = new Map<string, { originalUrl: string, clicks: number, createdAt: Date }>()
 

@@ -4,10 +4,5 @@
   "env": {
     "NEXT_PUBLIC_BASE_URL": "https://autorevenue-hub.vercel.app"
   },
-  "functions": {
-    "src/app/api/**/*.ts": {
-      "maxDuration": 30
-    }
-  },
   "regions": ["iad1"]
 }
