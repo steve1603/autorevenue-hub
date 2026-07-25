@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "test": "node --test \"src/**/*.test.ts\"",
-    "giftcards": "node scripts/scan-giftcards.ts"
+    "giftcards": "node scripts/scan-giftcards.mts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.4",

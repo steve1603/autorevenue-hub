@@ -143,12 +143,40 @@ export async function isAllowedByRobots(url: string, timeoutMs: number): Promise
   const rules = await pending
   const path = parsed.pathname + parsed.search
 
-  const longestMatch = (patterns: string[]): number =>
-    patterns.reduce((best, prefix) => (path.startsWith(prefix) ? Math.max(best, prefix.length) : best), -1)
-
-  const disallowed = longestMatch(rules.disallow)
+  const disallowed = longestMatch(rules.disallow, path)
   if (disallowed < 0) return true
-  return longestMatch(rules.allow) >= disallowed
+  // Per RFC 9309 the most specific rule wins, and Allow wins a tie.
+  return longestMatch(rules.allow, path) >= disallowed
+}
+
+function longestMatch(patterns: string[], path: string): number {
+  let best = -1
+  for (const pattern of patterns) {
+    if (pattern.length > best && compilePattern(pattern).test(path)) best = pattern.length
+  }
+  return best
+}
+
+const patternCache = new Map<string, RegExp>()
+
+/**
+ * Compiles a robots.txt path pattern to a regex.
+ *
+ * `*` matches any sequence and a trailing `$` anchors the end of the path;
+ * everything else is literal. Matching is otherwise by prefix.
+ */
+function compilePattern(pattern: string): RegExp {
+  const cached = patternCache.get(pattern)
+  if (cached) return cached
+
+  const anchorEnd = pattern.endsWith('$')
+  const body = anchorEnd ? pattern.slice(0, -1) : pattern
+  // Escape every regex metacharacter except `*`, which becomes the wildcard.
+  const escaped = body.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')
+
+  const compiled = new RegExp(`^${escaped}${anchorEnd ? '$' : ''}`)
+  patternCache.set(pattern, compiled)
+  return compiled
 }
 
 async function loadRobots(origin: string, timeoutMs: number): Promise<RobotsRules> {
@@ -164,8 +192,8 @@ async function loadRobots(origin: string, timeoutMs: number): Promise<RobotsRule
 
 /**
  * Parses the subset of the robots.txt grammar that matters here: the `*` group
- * and any group naming this crawler. Wildcards inside paths are not expanded —
- * a `*` is treated as the end of a prefix, which errs toward not fetching.
+ * and any group naming this crawler. Path patterns are kept verbatim and
+ * compiled at match time, so `*` and `$` behave as RFC 9309 specifies.
  */
 export function parseRobots(body: string): RobotsRules {
   const disallow: string[] = []
@@ -201,19 +229,14 @@ export function parseRobots(body: string): RobotsRules {
 
     if (field === 'disallow') {
       if (value === '') continue // "Disallow:" with no value allows everything.
-      disallow.push(truncateAtWildcard(value))
+      disallow.push(value)
     } else if (field === 'allow') {
       if (value === '') continue
-      allow.push(truncateAtWildcard(value))
+      allow.push(value)
     }
   }
 
   return { disallow, allow }
-}
-
-function truncateAtWildcard(path: string): string {
-  const wildcard = path.indexOf('*')
-  return wildcard < 0 ? path : path.slice(0, wildcard)
 }
 
 // -------------------------------------------------------------- concurrency

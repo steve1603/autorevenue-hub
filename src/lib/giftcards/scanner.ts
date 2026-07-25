@@ -22,7 +22,8 @@ import type {
 } from './types.ts'
 
 const DEFAULT_LIMIT = 40
-const DEFAULT_TIMEOUT_MS = 8000
+// Large retailer homepages are slow; 8s was cutting some of them off.
+const DEFAULT_TIMEOUT_MS = 12000
 const DEFAULT_CONCURRENCY = 5
 
 /** Queries used when a web search key is configured. */

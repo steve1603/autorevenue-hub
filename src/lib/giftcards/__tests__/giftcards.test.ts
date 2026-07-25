@@ -208,8 +208,14 @@ describe('robots.txt parsing', () => {
       Disallow: /search?*
     `)
 
-    assert.deepEqual(rules.disallow, ['/private', '/search?'])
+    assert.deepEqual(rules.disallow, ['/private', '/search?*'])
     assert.deepEqual(rules.allow, ['/private/public-deals'])
+  })
+
+  it('keeps wildcard patterns verbatim rather than truncating them', () => {
+    // Truncating at the `*` collapsed these to "/" and blocked whole domains.
+    const rules = parseRobots('User-agent: *\nDisallow: /*?\nDisallow: /*.json$\n')
+    assert.deepEqual(rules.disallow, ['/*?', '/*.json$'])
   })
 
   it('treats an empty disallow as permitting everything', () => {
@@ -230,7 +236,11 @@ describe('fetcher against a local server', () => {
     server = http.createServer((req, res) => {
       if (req.url === '/robots.txt') {
         res.writeHead(200, { 'Content-Type': 'text/plain' })
-        res.end('User-agent: *\nDisallow: /private\nAllow: /private/ok\n')
+        // The wildcard rules mirror what real sites ship; they must not be read
+        // as a blanket ban on the whole origin.
+        res.end(
+          'User-agent: *\nDisallow: /private\nAllow: /private/ok\nDisallow: /*?\nDisallow: /*.json$\n',
+        )
         return
       }
       if (req.url === '/slow') {
@@ -275,6 +285,21 @@ describe('fetcher against a local server', () => {
   it('follows an Allow that overrides a Disallow', async () => {
     const result = await fetchText(`${base}/private/ok`, { timeoutMs: 2000 })
     assert.equal(result.ok, true)
+  })
+
+  it('still allows ordinary paths when wildcard rules are present', async () => {
+    const result = await fetchText(`${base}/deals`, { timeoutMs: 2000 })
+    assert.equal(result.ok, true, 'a "Disallow: /*?" rule must not ban the whole origin')
+  })
+
+  it('honours a wildcard rule for the paths it actually covers', async () => {
+    const withQuery = await fetchText(`${base}/deals?page=2`, { timeoutMs: 2000 })
+    assert.equal(withQuery.ok, false)
+    assert.equal(withQuery.error, 'Disallowed by robots.txt')
+
+    const endAnchored = await fetchText(`${base}/data.json`, { timeoutMs: 2000 })
+    assert.equal(endAnchored.ok, false)
+    assert.equal(endAnchored.error, 'Disallowed by robots.txt')
   })
 
   it('reports HTTP errors instead of throwing', async () => {

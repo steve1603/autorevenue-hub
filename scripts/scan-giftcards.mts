@@ -185,9 +185,20 @@ async function main(): Promise<void> {
   }
 
   if (result.unreachable.length > 0) {
-    console.log('\n--- Unreachable this run ---')
-    for (const entry of result.unreachable) {
-      console.log(`  · ${entry.name}: ${entry.error}`)
+    // A site that bans crawlers is not a site that is down, and conflating the
+    // two makes the catalog look broken when it is not.
+    const robotsBlocked = result.unreachable.filter((entry) => /robots\.txt/i.test(entry.error))
+    const failed = result.unreachable.filter((entry) => !/robots\.txt/i.test(entry.error))
+
+    if (robotsBlocked.length > 0) {
+      console.log('\n--- Not checked: these sites ask crawlers to stay out ---')
+      console.log('    (the programs are fine, this tool just does not read their pages)')
+      for (const entry of robotsBlocked) console.log(`  · ${entry.name}`)
+    }
+
+    if (failed.length > 0) {
+      console.log('\n--- Could not reach this run ---')
+      for (const entry of failed) console.log(`  · ${entry.name}: ${entry.error}`)
     }
   }
 
