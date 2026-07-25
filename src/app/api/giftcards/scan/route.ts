@@ -4,7 +4,7 @@ import { SAFETY_RULES } from '@/lib/giftcards/scam-filter'
 import type { EffortLevel, ScanOptions, ScanResult } from '@/lib/giftcards/types'
 
 export const dynamic = 'force-dynamic'
-// Matches the ceiling set for API routes in vercel.json.
+// Scans fan out to third-party sites, so this needs more than the 15s default.
 export const maxDuration = 30
 
 const EFFORT_LEVELS: EffortLevel[] = ['passive', 'low', 'medium', 'high']
