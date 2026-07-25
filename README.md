@@ -46,6 +46,17 @@ AutoRevenue Hub is a comprehensive platform designed to generate passive income 
 - AI-powered optimization
 - Automated scaling
 
+### 6. The Brasshaven Files — beginner CTF game
+
+A steampunk-noir capture-the-flag adventure at **`/ctf`**, built for people who
+have never done a CTF. Five cases, 14 challenges, covering encoding, web
+reconnaissance, classical ciphers, hash cracking and SQL injection — each one
+followed by a plain-English explanation of the real technique behind it.
+
+Everything runs in the browser: a built-in decoder workbench, a simulated
+terminal, and a deliberately injectable login. No setup, no external tools, no
+data leaves the page. See [`docs/brasshaven-files.md`](docs/brasshaven-files.md).
+
 ## 🛠 Tech Stack
 
 - **Frontend**: Next.js 15, React 19, Tailwind CSS
