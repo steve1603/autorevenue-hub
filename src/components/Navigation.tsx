@@ -9,6 +9,7 @@ const navigation = [
   { name: 'Tools', href: '/tools' },
   { name: 'Dashboard', href: '/dashboard' },
   { name: 'Pricing', href: '/#pricing' },
+  { name: 'CTF Game', href: '/ctf' },
 ]
 
 export default function Navigation() {
