@@ -6,13 +6,13 @@
  * be kept patched.
  */
 
-/** Words that mark a line as being about gift cards at all. */
-const GIFT_CARD_SIGNAL =
-  /\b(gift\s*cards?|giftcards?|e-?gift|gift\s*certificates?|store\s+credit|reward\s+cards?|voucher)\b/i
+/** Words marking a line as being about paid research or earning at all. */
+const EARNING_SIGNAL =
+  /\b(survey|surveys|study|studies|research|panel|focus\s+group|user\s+test(ing)?|interview|questionnaire|task|gift\s*cards?)\b/i
 
-/** Words that suggest the card is free rather than merely for sale. */
-const FREE_SIGNAL =
-  /\b(free|no\s+cost|bonus|reward|earn|giveaway|credit|with\s+purchase|when\s+you)\b/i
+/** Words suggesting there is actually money attached. */
+const COMPENSATION_SIGNAL =
+  /\b(paid|pays?|paying|earn|earning|compensat\w+|reward|incentive|paypal|gift\s*card|\$\d|paid\s+out)\b/i
 
 const BRAND_NAMES = [
   'Amazon', 'Walmart', 'Target', 'Starbucks', 'Best Buy', 'Home Depot', 'Lowe\'s',
@@ -91,15 +91,35 @@ function safeFromCodePoint(code: number, fallback: string): string {
   }
 }
 
-/** True when a line is plausibly about getting a gift card rather than buying one. */
-export function looksLikeGiftCardOffer(text: string): boolean {
-  return GIFT_CARD_SIGNAL.test(text) && FREE_SIGNAL.test(text)
+/** True when a line plausibly describes paid research you could take part in. */
+export function looksLikeEarningOpportunity(text: string): boolean {
+  return EARNING_SIGNAL.test(text) && COMPENSATION_SIGNAL.test(text)
+}
+
+/**
+ * Reads a stated duration in minutes, e.g. "20 min", "1 hour", "45-minute".
+ * Used to turn a payout into an implied hourly rate.
+ */
+export function extractMinutes(text: string): number | undefined {
+  const hours = text.match(/(\d+(?:\.\d+)?)\s*(?:-|\s)?\s*(?:hours?|hrs?|h)\b/i)
+  if (hours) {
+    const value = Number.parseFloat(hours[1])
+    if (Number.isFinite(value) && value > 0 && value <= 24) return Math.round(value * 60)
+  }
+
+  const minutes = text.match(/(\d{1,3})\s*(?:-|\s)?\s*(?:minutes?|mins?|m)\b/i)
+  if (minutes) {
+    const value = Number.parseInt(minutes[1], 10)
+    if (Number.isFinite(value) && value > 0 && value <= 600) return value
+  }
+
+  return undefined
 }
 
 const ANCHOR = /<a\b[^>]*?href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi
 
 /**
- * Pulls linked headlines that read like gift card offers.
+ * Pulls linked headlines that read like paid studies or survey offers.
  *
  * @param html     Raw page markup.
  * @param baseUrl  Used to resolve relative hrefs.
@@ -114,7 +134,7 @@ export function extractOfferCandidates(html: string, baseUrl: string): OfferCand
     const title = htmlToText(match[2])
 
     if (title.length < 12 || title.length > 220) continue
-    if (!looksLikeGiftCardOffer(title)) continue
+    if (!looksLikeEarningOpportunity(title)) continue
 
     const url = resolveUrl(href, baseUrl)
     if (!url) continue
@@ -148,7 +168,7 @@ export function parseRedditListing(body: string, fallbackUrl: string): OfferCand
 
     const record = post as Record<string, unknown>
     const title = typeof record.title === 'string' ? record.title : ''
-    if (!title || !looksLikeGiftCardOffer(title)) continue
+    if (!title || !looksLikeEarningOpportunity(title)) continue
 
     const permalink = typeof record.permalink === 'string' ? record.permalink : ''
     // `url` is where the post points; the permalink is the discussion, which is
@@ -200,7 +220,12 @@ export function contextAround(plain: string, phrase: string, radius = 160): stri
   return plain.slice(start, end).trim()
 }
 
-/** Reads a face value like "$25 gift card" out of free text. */
+/**
+ * Reads a payout like "$75 for a 1-hour interview" out of free text.
+ *
+ * Takes the smallest figure quoted, which is the conservative reading of a
+ * range like "$40-$75" and of "spend $50, get $10" phrasing alike.
+ */
 export function extractValueUsd(text: string): number | undefined {
   const amounts: number[] = []
   for (const match of text.matchAll(/\$\s?(\d{1,4}(?:,\d{3})*)(?:\.(\d{2}))?\b/g)) {

@@ -40,11 +40,11 @@ AutoRevenue Hub is a comprehensive platform designed to generate passive income 
 - Weather data aggregation
 - Usage-based billing
 
-### 5. Gift Card Finder
-- Scans reward programs, cashback apps and deal feeds for legitimate free gift cards
-- Ranks each method by what you actually clear for the effort, not by headline claims
-- Scam filter that blocks "code generator" and data-harvesting pages
-- Available as a web tool (`/tools/gift-card-finder`), an API (`/api/giftcards/scan`) and a CLI
+### 5. Survey Finder
+- Ranks survey panels and paid studies by what they really pay per hour once screen-outs are priced in
+- Works out how many surveys, hours and calendar weeks a specific gift card actually takes
+- Scam filter for joining fees, cheque-cashing schemes and data harvesting
+- Available as a web tool (`/tools/survey-finder`), an API (`/api/surveys/scan`) and a CLI
 
 ### 6. Analytics & Optimization
 - Real-time revenue tracking
@@ -93,52 +93,73 @@ npm run dev
 4. **Open your browser**
 Navigate to `http://localhost:3000`
 
-## 🎁 Gift Card Finder
+## 📝 Survey Finder
 
-Finds real ways to get gift cards without paying for them, and filters out the fraud that
-dominates this search space.
+Finds surveys and paid studies worth filling out, ranked by what they actually pay for your
+time — and filters out the fraud that fills this space.
 
 ```bash
-npm run giftcards                                        # full sweep
-npm run giftcards -- --region US --max-effort low        # passive/low effort only, US
-npm run giftcards -- --no-purchase                       # nothing that requires spending first
-npm run giftcards -- --offline                           # catalog only, no network access
-npm run giftcards -- --json > report.json                # machine-readable output
-npm run giftcards -- --help                              # all options
+npm run surveys                                    # rank everything
+npm run surveys -- --target 25 --region US         # plan a $25 card
+npm run surveys -- --min-hourly 5 --no-invite      # only what's worth the time
+npm run surveys -- --kind research-study           # just the high-paying studies
+npm run surveys -- --brand Amazon                  # only panels paying in Amazon cards
+npm run surveys -- --offline                       # rank without network access
+npm run surveys -- --json > report.json            # machine-readable
+npm run surveys -- --help                          # all options
 ```
 
-Same engine behind the web UI at `/tools/gift-card-finder` and the API:
+Same engine behind the web UI at `/tools/survey-finder` and the API:
 
 ```
-GET /api/giftcards/scan?region=US&maxEffort=low&noPurchaseOnly=true&limit=40
+GET /api/surveys/scan?region=US&targetUsd=25&minHourlyUsd=5&excludeInviteOnly=true
 ```
 
-### What it does
+### The number that matters
 
-1. **Verifies standing programs.** Fetches each curated source and reports whether it is
-   actually reachable. Sources that fail are listed as unreachable rather than dropped, so
-   the results never look more complete than they are.
-2. **Crawls deal feeds** for time-sensitive promotions, extracting the card's face value,
-   the brands involved, and the terms.
-3. **Optionally searches the open web.** Set `BRAVE_SEARCH_API_KEY` to widen the sweep past
-   the curated list. Without it the scan still runs and says so in its warnings.
-4. **Filters scams.** Every candidate is scored against heuristics for code generators,
-   brand impersonation, throwaway domains, offer-completion walls, and data harvesting.
-   Blocked entries are reported with reasons rather than hidden.
-5. **Ranks by realistic value.** Scoring weighs effort, purchase requirements and payout
-   thresholds, so a passive $5/month beats a $60/month grind.
+Every panel advertises a payout and a survey length. Divide one by the other and you get a
+rate you will never earn, because it ignores the attempts that end in a screen-out ten
+minutes in. This tool prices those in:
+
+```
+effective minutes = survey length + (screenOutRate / (1 - screenOutRate)) x screener length
+```
+
+At a 50% screen-out rate that is one wasted screener per completed survey. At 85% — normal
+for high-paying B2B study marketplaces — it is nearly six. The gap between advertised and
+real hourly rate is usually 20-40%, and the tool shows both side by side.
+
+It also prices **supply**, which is the constraint people hit second. A platform paying
+$20/hour that only offers two surveys a week is not going to get you a gift card this
+month, so the ranking blends hourly rate with realistic weekly earnings.
+
+### What you get per platform
+
+- Real vs. advertised hourly rate, and dollars per completed survey
+- Realistic weekly earnings at that platform's actual survey volume
+- Surveys, hours and **calendar weeks** to your target gift card
+- Cash-out minimum, payout speed, and which cards it pays in
+- The catch, in plain language — every platform has one
+
+### What it does not do
+
+It does not fill anything out for you. Automating survey answers is detected through timing
+analysis and attention checks, and the penalty is a banned account with the balance voided —
+so it is the one approach that reliably earns nothing. This finds the work; you do it.
+
+### About the numbers
+
+Screen-out rates are estimates. No panel publishes them, because that number is exactly what
+would reveal the true hourly rate. They are calibrated from the shape of each platform and
+drive every ranking here, so treat them as a starting point and tune
+`src/lib/surveys/panels.ts` against your own results — two people with different demographics
+genuinely earn different rates on the same panel.
 
 ### Crawler behaviour
 
-Identifies itself by user agent, honours `robots.txt`, caps concurrency and response size,
-and times out rather than hanging. Scan results are cached for 10 minutes per query.
-
-### A note on the numbers
-
-The monthly value ranges are what a regular person clears, not what referral blogs claim.
-Most of these are worth $5–40/month. No legitimate service generates gift card codes —
-anything advertising a "generator" is harvesting your data or serving malware, which is
-exactly what the scam filter is for.
+Identifies itself by user agent, honours `robots.txt` including wildcard rules and `Allow`
+overrides, caps concurrency and response size, and times out rather than hanging. Results are
+cached for 10 minutes per query.
 
 ## 💡 Revenue Automation
 

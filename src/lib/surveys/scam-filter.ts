@@ -42,6 +42,23 @@ const FATAL_PATTERNS: { pattern: RegExp; reason: string }[] = [
     pattern: /\bcarding\b|\bcvv\s+shop\b|\bdumps?\s+(shop|with\s+pin)\b/i,
     reason: 'References stolen card trading',
   },
+  // --- survey-specific fraud ---------------------------------------------
+  {
+    pattern: /\b(registration|membership|starter|activation|processing)\s+fee\b/i,
+    reason: 'Charges a fee to join — legitimate panels are always free, they are paying you',
+  },
+  {
+    pattern: /\b(we|you)('ll|\s+will)?\s+(mail|send)\s+you\s+a\s+(cashier'?s?\s+)?check\b/i,
+    reason: 'Mail-a-check setup, the signature of the mystery-shopper cheque-cashing scam',
+  },
+  {
+    pattern: /\bevaluate\s+(a\s+)?(money\s+transfer|wire\s+transfer|western\s+union)\b/i,
+    reason: 'Asks you to test a money transfer service — this is money laundering, not research',
+  },
+  {
+    pattern: /\b\$\d{3,}\s*(\/|\s+per\s+)(day|survey)\b/i,
+    reason: 'Advertises hundreds of dollars per day or per survey, which no panel pays',
+  },
 ]
 
 /** Strong signals. Two of these together are enough to block. */
@@ -69,6 +86,18 @@ const HIGH_RISK_PATTERNS: { pattern: RegExp; reason: string }[] = [
   {
     pattern: /\bspin\s+(the\s+wheel|to\s+win)\b|\bscratch\s+(and|to)\s+win\b/i,
     reason: 'Prize-wheel mechanic used to justify collecting your details',
+  },
+  {
+    pattern: /\b(bank\s+account|routing)\s+number\b/i,
+    reason: 'Asks for bank account or routing details — panels pay by PayPal or gift code',
+  },
+  {
+    pattern: /\bno\s+(experience|skills?)\s+(needed|required|necessary)\b.{0,60}\$\d{3,}/i,
+    reason: 'Pairs "no experience needed" with a large figure',
+  },
+  {
+    pattern: /\bwork\s+from\s+home\b.{0,40}\b\$\d{3,}\b/i,
+    reason: 'Work-from-home pitch attached to an implausible figure',
   },
 ]
 
@@ -269,10 +298,12 @@ export function assessOfferRisk(input: {
  * trouble regardless of how good the filtering is.
  */
 export const SAFETY_RULES = [
-  'No legitimate service generates gift card codes. Every "generator" either harvests your data or serves malware.',
-  'You should never pay, and never hand over card or bank details, to claim something described as free.',
-  'A real program identifies who is paying for the card and why — usually market research, advertising, or customer retention.',
-  'Redeem earned cards promptly. Reward-site balances are not protected if the operator shuts down.',
-  'Use a separate email address for reward programs; the address itself gets sold and resold.',
-  'State unclaimed property searches are always free. Anyone charging a finder\'s fee is a middleman you do not need.',
+  'A real panel never charges to join. Money flows to you — a registration, activation or starter-kit fee means the fee is the business.',
+  'Panels pay by PayPal or gift code. None of them need your bank account, routing number or Social Security number to send you $5.',
+  'Never accept a cheque and forward part of it onward. That is cheque fraud with you as the visible party, and the cheque bounces after you have sent real money.',
+  'Cash out early and often. A balance sitting on a panel is not protected if the operator closes, and high thresholds exist because unredeemed balances are profit.',
+  'Use a dedicated email address. The address itself is a product these platforms sell.',
+  'Answer honestly and consistently. Panels run attention checks and compare your answers across surveys; contradicting yourself gets the account banned and the balance voided.',
+  'Never automate survey answers. Timing analysis and attention checks catch it, and the penalty is a forfeited balance rather than a warning.',
+  'If a survey asks for your full card number, SSN or passwords, close it. Legitimate research never needs those, whoever it claims to be from.',
 ]
