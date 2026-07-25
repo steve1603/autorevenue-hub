@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { LinkIcon, QrCodeIcon, PhotoIcon, DocumentIcon } from '@heroicons/react/24/outline'
+import { LinkIcon, QrCodeIcon, PhotoIcon, DocumentIcon, GiftIcon } from '@heroicons/react/24/outline'
 import Navigation from '@/components/Navigation'
 
 export default function ToolsPage() {
@@ -21,6 +21,13 @@ export default function ToolsPage() {
         </div>
 
         <div className="mx-auto mt-16 grid max-w-2xl grid-cols-1 gap-8 sm:mt-20 lg:mx-0 lg:max-w-none lg:grid-cols-2">
+          <ToolCard
+            title="Gift Card Finder"
+            description="Scans reward programs and deal feeds for legitimate free gift cards, and filters out the generator scams"
+            icon={GiftIcon}
+            href="/tools/gift-card-finder"
+            color="from-yellow-500 to-amber-500"
+          />
           <ToolCard
             title="URL Shortener"
             description="Create short, trackable links with custom aliases and detailed analytics"
