@@ -8,45 +8,47 @@ import { useState } from 'react'
  * The teaching device is the live query preview: the player watches their own
  * typing become part of the query's grammar rather than its data, which is
  * precisely what SQL injection is.
+ *
+ * The bypass itself is evaluated server-side, so the countersign is only ever
+ * sent to someone who actually performed the injection -- it is not sitting in
+ * this bundle waiting to be read.
  */
-
-/** `' OR '1'='1`, `' or 1=1`, `" || 2>1` -- a quote followed by an always-true clause. */
-const TAUTOLOGY = /['"]\s*(or|\|\|)\s+[^\s]+\s*=\s*[^\s]+/i
-/** `admin'--`, `admin'#` -- a quote followed by a comment that discards the rest. */
-const COMMENTED = /['"]\s*(--|#|\/\*)/
-
-const KEEPERS = ['ignatius rook', 'wilhelmina cog', 'thaddeus ash']
-
-export default function VaultDoor({ host, secret }: { host: string; secret: string }) {
+export default function VaultDoor({ host }: { host: string }) {
   const [name, setName] = useState('')
   const [phrase, setPhrase] = useState('')
+  const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<
-    { kind: 'idle' } | { kind: 'denied' } | { kind: 'error'; detail: string } | { kind: 'open' }
+    | { kind: 'idle' }
+    | { kind: 'denied' }
+    | { kind: 'error'; detail: string }
+    | { kind: 'open'; secret: string; keepers: string[] }
   >({ kind: 'idle' })
 
-  const injected = (v: string) => TAUTOLOGY.test(v) || COMMENTED.test(v)
-
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (busy) return
+    setBusy(true)
 
-    if (injected(name) || injected(phrase)) {
-      setResult({ kind: 'open' })
-      return
-    }
-
-    // An unbalanced quote breaks the query the door built -- exactly the
-    // "hmm, that's an odd error message" moment that starts a real assessment.
-    const quotes = (name + phrase).split("'").length - 1
-    if (quotes % 2 === 1) {
-      setResult({
-        kind: 'error',
-        detail:
-          "ENGINE FAULT: unterminated string near \"'\" -- the register could not parse the sentence the door built.",
+    try {
+      const response = await fetch('/api/ctf/vault', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, phrase }),
       })
-      return
-    }
+      const data = await response.json()
 
-    setResult({ kind: 'denied' })
+      if (data.result === 'open') {
+        setResult({ kind: 'open', secret: data.secret, keepers: data.keepers ?? [] })
+      } else if (data.result === 'fault') {
+        setResult({ kind: 'error', detail: data.detail })
+      } else {
+        setResult({ kind: 'denied' })
+      }
+    } catch {
+      setResult({ kind: 'error', detail: 'The speaking tube is dead -- could not reach the door.' })
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -83,8 +85,8 @@ export default function VaultDoor({ host, secret }: { host: string; secret: stri
               placeholder="the passphrase you do not have"
             />
           </div>
-          <button type="submit" className="btn-brass w-full">
-            Speak to the door
+          <button type="submit" className="btn-brass w-full" disabled={busy}>
+            {busy ? 'The door is listening…' : 'Speak to the door'}
           </button>
         </form>
       </div>
@@ -124,10 +126,10 @@ export default function VaultDoor({ host, secret }: { host: string; secret: stri
       {result.kind === 'open' && (
         <div className="paper paper-aged p-5">
           <p className="stencil" style={{ color: '#7a5a1e' }}>
-            Register returned {KEEPERS.length} rows -- door opens on the first
+            Register returned {result.keepers.length} rows -- door opens on the first
           </p>
           <ul className="mt-2 space-y-1 font-mono text-sm">
-            {KEEPERS.map((k, i) => (
+            {result.keepers.map((k, i) => (
               <li key={k} style={{ fontWeight: i === 0 ? 700 : 400, opacity: i === 0 ? 1 : 0.55 }}>
                 {i === 0 ? '▸ ' : '  '}
                 {k}
@@ -137,7 +139,7 @@ export default function VaultDoor({ host, secret }: { host: string; secret: stri
           <p className="mt-4 border-t border-[#241a12]/20 pt-3 font-mono text-sm">
             EIGHTH LOCK RETRACTED. Countersign engraved on the inside of the door:
             <br />
-            <strong>{secret}</strong>
+            <strong>{result.secret}</strong>
           </p>
         </div>
       )}

@@ -37,6 +37,66 @@ technique and then explains it plainly once you have solved it.
 14 challenges, 2,950 points, six ranks from *Apprentice Sleuth* to *Ghost of Brasshaven*.
 Cases unlock in order — a case opens when the previous one is fully closed.
 
+## The leaderboard and its anti-cheat design
+
+Players sign the register with a handle and appear on `/ctf/leaderboard`, ranked
+by points. Any number of people can play at once from different machines --
+each browser holds its own signed session.
+
+The leaderboard is only worth having if scores are hard to fake, and a CTF
+audience is exactly the crowd that will try. The rule the design follows is:
+**the browser never learns anything it could use to skip the work, and never
+tells the server what a solve was worth.**
+
+What that means concretely:
+
+| Measure | Effect |
+|---|---|
+| Answer hashes are `server-only` | The browser cannot check a flag itself, so it cannot know one without solving |
+| Hint text served by `/api/ctf/hint` | Reading a hint is recorded, so the point penalty cannot be dodged |
+| Debriefs served on solve | Case III's debrief names TELEGRAPH GHOST — both its own flag and the finale's key |
+| Terminal filesystem is server-side | `cat robots.txt` really queries the host; the flag isn't in the bundle to grep |
+| Vault injection evaluated server-side | The countersign is released only to a request that actually performed the bypass |
+| Score computed from recorded solves | No endpoint accepts a score; the client cannot submit one |
+| `(player_id, challenge_id)` primary key | A replayed submission cannot bank points twice |
+| HMAC-signed, httpOnly session cookie | A player cannot forge another's identity, and page scripts cannot read the cookie |
+| Fixed-window rate limit (30/min/challenge) | Guessing at flags is never cheap |
+| Supabase RLS enabled with no policies | The public anon key cannot touch the tables; only the server's service role can |
+
+### What this does *not* stop
+
+Stated plainly, because a security feature you have overestimated is worse than
+one you have not built:
+
+- **Case II-1 ("Ink Beneath the Paper") still has its flag in the page.** It has
+  to: the challenge *is* reading the page source. Finding it in the bundle is
+  the intended solution.
+- **Case IV-1's wordlist is public**, as it must be — hashing the twelve names is
+  the exercise. A player could guess among twelve instead of hashing.
+- **Sharing answers between people.** No technical measure fixes this; it is a
+  social problem. The board shows hint counts and elapsed time, which makes an
+  implausible run visible.
+- **Scripting the decoders.** The ciphertexts must reach the player to be
+  solvable. Someone who automates the decoding has, arguably, done the work.
+
+### Setup
+
+Without a database the game still runs — scores are held in memory, and both the
+game and the board say so plainly. For real use:
+
+1. Run `supabase/migrations/0001_ctf_leaderboard.sql` in your Supabase SQL editor.
+2. Set these environment variables on the deployment:
+
+```
+SUPABASE_URL=https://<project>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<service role key>   # server-side only, never NEXT_PUBLIC_
+CTF_SESSION_SECRET=<32+ random characters>
+```
+
+`CTF_SESSION_SECRET` is required in production and the server refuses to start
+the leaderboard without it — a per-instance random secret would scatter one
+player's score across several phantom identities.
+
 ## How it is put together
 
 ```
@@ -45,10 +105,13 @@ src/app/ctf/
   layout.tsx      route metadata
   ctf.css         gaslamp theme, scoped to .ctf-root (no image assets)
 src/lib/ctf/
-  cases.ts        all narrative and puzzle data; answers stored as SHA-256
+  cases.ts        narrative and evidence -- the client-safe half only
   ciphers.ts      pure encode/decode helpers, incl. a from-scratch SHA-256
   verify.ts       flag normalisation and checking
-  progress.ts     localStorage-backed progress hook
+  progress.ts     hook mirroring server-held progress
+  server/         server-only: answers, hints, debriefs, hosts, sessions, store
+src/app/api/ctf/
+  register/ submit/ hint/ state/ terminal/ vault/ leaderboard/
 src/components/ctf/
   DifferenceEngine.tsx    the decoder workbench (slide-over drawer)
   ChallengePanel.tsx      brief, evidence, hints, flag entry, debrief
@@ -57,17 +120,18 @@ src/components/ctf/
   evidence/VaultDoor.tsx  deliberately injectable login with a live query preview
 ```
 
-Everything runs client-side. There is no server component to the game, no
-network calls, and no data leaves the browser — progress lives in
-`localStorage` under `brasshaven-files:v1`.
+The decoding tools all run in the browser, but anything that decides a score is
+held by the server. The only thing kept in `localStorage` is whether the player
+has clicked past the title card.
 
 ### Notes on a few deliberate choices
 
 - **SHA-256 is implemented in TypeScript** rather than calling `crypto.subtle`,
   which only exists in secure contexts. Flag checking must not break when the
   game is served over plain HTTP on a LAN address.
-- **Answers are stored as hashes**, so reading the JavaScript bundle does not
-  spoil the game by accident.
+- **Answers, hints, debriefs and the terminal filesystem are `server-only`**, so
+  the build fails loudly if any of them is ever imported into a client
+  component. That import guard is what the leaderboard's integrity rests on.
 - **Flag entry is forgiving**: case-insensitive, whitespace-trimmed, and spaces
   fold to underscores — two puzzles decode to plaintext with spaces inside the
   braces, and beginners should not lose to punctuation.
@@ -78,13 +142,22 @@ network calls, and no data leaves the browser — progress lives in
 
 ## Adding a challenge
 
-Append a `Challenge` to a case in `src/lib/ctf/cases.ts`. The only fiddly field
-is `answerHash`, which is the SHA-256 of the normalised flag — lowercased,
-trimmed, spaces as underscores:
+A challenge is now split across the client-safe and server-only halves:
 
-```bash
-node -e "console.log(require('crypto').createHash('sha256').update('brass{your_flag}').digest('hex'))"
-```
+1. Append a `Challenge` to a case in `src/lib/ctf/cases.ts` (title, brief,
+   evidence, `hintCount`, lesson, tools).
+2. Add its answer hash to `src/lib/ctf/server/answers.ts` — the SHA-256 of the
+   normalised flag, lowercased and trimmed with spaces as underscores:
+
+   ```bash
+   node -e "console.log(require('crypto').createHash('sha256').update('brass{your_flag}').digest('hex'))"
+   ```
+
+3. Add its hints to `src/lib/ctf/server/hints.ts` and its debrief to
+   `src/lib/ctf/server/debriefs.ts`, keyed by the same challenge id.
+
+Keep `hintCount` in step with the number of hints, or the UI will offer a hint
+that does not exist.
 
 Supported `evidence` kinds are `document`, `ciphertext`, `source` (injects a real
 HTML comment for the view-source challenge), `terminal`, `login`, and `wordlist`.
@@ -101,9 +174,16 @@ before shipping:
 - The pure-TypeScript SHA-256 was diffed against Node's `crypto` across the
   message-padding boundaries (54–57, 63–65, 119–120, 127–128 bytes) and on
   multi-byte UTF-8 input.
-- A scripted browser playthrough completed all five cases: unlocking, hint
-  scoring, the terminal commands, the HTML comment actually reaching the DOM, the
-  injection bypass, reload persistence, and the finale.
+- A scripted browser playthrough completed all five cases against the real API:
+  signing the register, unlocking, server-side hint scoring, the terminal
+  commands, the HTML comment reaching the DOM, the injection bypass, the finale,
+  and the leaderboard showing the correct hint-adjusted total.
+- The anti-cheat measures were tested by attacking them: resubmitting a solved
+  flag does not double-bank, a forged session cookie is not recorded, the hint
+  penalty applies from the server's own record, no route accepts a
+  client-supplied score, and duplicate handles are refused case-insensitively.
+- The built client bundle was audited for leaks. The only flag still present is
+  Case II-1's, which is intentional -- that challenge is "read the page source".
 
 ---
 

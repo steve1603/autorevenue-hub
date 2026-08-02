@@ -152,11 +152,9 @@ export default function EvidenceBoard({ evidence }: { evidence: Evidence }) {
 
       {evidence.kind === 'source' && <SourceNotice body={evidence.body} secret={evidence.secret} />}
 
-      {evidence.kind === 'terminal' && (
-        <Terminal host={evidence.host} files={evidence.files} headers={evidence.headers} />
-      )}
+      {evidence.kind === 'terminal' && <Terminal host={evidence.host} />}
 
-      {evidence.kind === 'login' && <VaultDoor host={evidence.host} secret={evidence.secret} />}
+      {evidence.kind === 'login' && <VaultDoor host={evidence.host} />}
 
       {evidence.kind === 'wordlist' && (
         <KeeperRoll names={evidence.names} target={evidence.target} note={evidence.note} />

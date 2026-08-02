@@ -53,9 +53,15 @@ have never done a CTF. Five cases, 14 challenges, covering encoding, web
 reconnaissance, classical ciphers, hash cracking and SQL injection — each one
 followed by a plain-English explanation of the real technique behind it.
 
-Everything runs in the browser: a built-in decoder workbench, a simulated
-terminal, and a deliberately injectable login. No setup, no external tools, no
-data leaves the page. See [`docs/brasshaven-files.md`](docs/brasshaven-files.md).
+Includes a built-in decoder workbench, a simulated terminal, a deliberately
+injectable login, and a **leaderboard** at `/ctf/leaderboard` where players sign
+a handle and compete. Any number of people can play simultaneously from
+different machines.
+
+Scores are cheat-resistant by construction: flag checking, hint penalties and
+scoring all happen server-side, and no endpoint ever accepts a score from the
+client. Runs without a database (scores in memory); add Supabase to persist
+them. See [`docs/brasshaven-files.md`](docs/brasshaven-files.md).
 
 ## 🛠 Tech Stack
 

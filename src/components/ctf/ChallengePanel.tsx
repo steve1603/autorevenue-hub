@@ -9,7 +9,8 @@ import {
   LockOpenIcon,
 } from '@heroicons/react/24/outline'
 import { FLAG_FORMAT, pointsFor, type Challenge, type ToolId } from '@/lib/ctf/cases'
-import { checkFlag, critiqueFlag } from '@/lib/ctf/verify'
+import { critiqueFlag } from '@/lib/ctf/verify'
+import type { SubmitResult } from '@/lib/ctf/progress'
 import EvidenceBoard from './EvidenceBoard'
 
 /** Minimal inline formatter for the briefing copy: **bold**, *italic* and `code`. */
@@ -64,36 +65,66 @@ export default function ChallengePanel({
   challenge,
   solvedFor,
   hintsUsed,
+  hintText,
+  debrief,
+  competing,
   onRevealHint,
-  onSolve,
+  onSubmitFlag,
   onOpenTool,
   onBack,
 }: {
   challenge: Challenge
   solvedFor: number | undefined
   hintsUsed: number
-  onRevealHint: () => void
-  onSolve: () => void
+  hintText: string[]
+  /** Released by the server once the flag is accepted. */
+  debrief: string
+  /** True once a handle is claimed -- solves are being banked to the board. */
+  competing: boolean
+  onRevealHint: () => Promise<{ error?: string }>
+  onSubmitFlag: (flag: string) => Promise<SubmitResult>
   onOpenTool: (tool: ToolId | null) => void
   onBack: () => void
 }) {
   const [entry, setEntry] = useState('')
   const [feedback, setFeedback] = useState<string | null>(null)
   const [shake, setShake] = useState(0)
+  const [checking, setChecking] = useState(false)
+  const [hintPending, setHintPending] = useState(false)
   const solved = solvedFor !== undefined
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (solved) return
+    if (solved || checking) return
 
-    if (checkFlag(entry, challenge.answerHash)) {
-      setFeedback(null)
-      onSolve()
+    // Catch obvious format mistakes before spending a request on them.
+    const critique = critiqueFlag(entry)
+    if (critique) {
+      setFeedback(critique)
+      setShake((s) => s + 1)
       return
     }
 
-    setFeedback(critiqueFlag(entry) ?? 'That is not the countersign. Read it again -- and read it exactly.')
+    setChecking(true)
+    const result = await onSubmitFlag(entry)
+    setChecking(false)
+
+    if (result.correct) {
+      setFeedback(null)
+      return
+    }
+
+    setFeedback(
+      result.error ?? 'That is not the countersign. Read it again -- and read it exactly.',
+    )
     setShake((s) => s + 1)
+  }
+
+  const askForHint = async () => {
+    setHintPending(true)
+    const result = await onRevealHint()
+    setHintPending(false)
+    if (result.error) setFeedback(result.error)
   }
 
   return (
@@ -150,9 +181,11 @@ export default function ChallengePanel({
       )}
 
       {/* ------------------------------------------------------------ hints */}
-      <Section title={`Hints -- each one costs a fifth of the case fee (${hintsUsed} of 3 used)`}>
+      <Section
+        title={`Hints -- each one costs a fifth of the case fee (${hintsUsed} of ${challenge.hintCount} used)`}
+      >
         <div className="space-y-2">
-          {challenge.hints.slice(0, hintsUsed).map((hint, i) => (
+          {hintText.map((hint, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, height: 0 }}
@@ -163,14 +196,17 @@ export default function ChallengePanel({
               {hint}
             </motion.div>
           ))}
-          {hintsUsed < challenge.hints.length && !solved && (
+          {hintsUsed < challenge.hintCount && !solved && (
             <button
               type="button"
-              onClick={onRevealHint}
+              onClick={askForHint}
+              disabled={hintPending}
               className="btn-ghost inline-flex items-center gap-2"
             >
               <LightBulbIcon className="h-4 w-4" />
-              Ask the file clerk ({pointsFor(challenge, hintsUsed + 1)} pts if you solve it after this)
+              {hintPending
+                ? 'Asking…'
+                : `Ask the file clerk (${pointsFor(challenge, hintsUsed + 1)} pts if you solve it after this)`}
             </button>
           )}
         </div>
@@ -188,6 +224,12 @@ export default function ChallengePanel({
           <label className="stencil block" htmlFor="flag-entry">
             Submit the countersign -- format {FLAG_FORMAT}
           </label>
+          {!competing && (
+            <p className="text-xs italic text-[#b9ab92]">
+              Practice run -- you have not signed the register, so this solve will not reach the
+              leaderboard.
+            </p>
+          )}
           <div className="flex flex-col gap-3 sm:flex-row">
             <input
               id="flag-entry"
@@ -201,8 +243,8 @@ export default function ChallengePanel({
               }}
               placeholder="BRASS{...}"
             />
-            <button type="submit" className="btn-brass shrink-0">
-              File it
+            <button type="submit" className="btn-brass shrink-0" disabled={checking}>
+              {checking ? 'Checking…' : 'File it'}
             </button>
           </div>
           <AnimatePresence>
@@ -222,7 +264,7 @@ export default function ChallengePanel({
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
           <Section title="Case notes">
             <div className="paper paper-aged p-6 text-[0.95rem] leading-relaxed">
-              <Rich text={challenge.debrief} />
+              <Rich text={debrief} />
             </div>
           </Section>
 

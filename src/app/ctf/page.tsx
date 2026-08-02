@@ -1,22 +1,21 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   WrenchScrewdriverIcon,
   LockClosedIcon,
   CheckCircleIcon,
   ArrowLeftIcon,
-  ArrowPathIcon,
+  TrophyIcon,
 } from '@heroicons/react/24/outline'
-import {
-  CASES,
-  TOTAL_POINTS,
-  rankFor,
-  type ToolId,
-} from '@/lib/ctf/cases'
+import { CASES, TOTAL_POINTS, rankFor, type ToolId } from '@/lib/ctf/cases'
 import {
   caseProgress,
+  debriefFor,
+  hintTextFor,
+  hintsUsedFor,
   isCaseUnlocked,
   isGameComplete,
   scoreOf,
@@ -29,12 +28,14 @@ import ChallengePanel from '@/components/ctf/ChallengePanel'
 const TOTAL_CHALLENGES = CASES.reduce((n, c) => n + c.challenges.length, 0)
 
 export default function BrasshavenFiles() {
-  const { progress, hydrated, solve, revealHint, start, reset } = useProgress()
+  const { progress, hydrated, persistent, start, register, submitFlag, revealHint } = useProgress()
   const [openCaseId, setOpenCaseId] = useState<string | null>(null)
   const [openChallengeId, setOpenChallengeId] = useState<string | null>(null)
   const [engineOpen, setEngineOpen] = useState(false)
   const [requestedTool, setRequestedTool] = useState<ToolId | null>(null)
-  const [confirmReset, setConfirmReset] = useState(false)
+  const [handleEntry, setHandleEntry] = useState('')
+  const [handleError, setHandleError] = useState<string | null>(null)
+  const [claiming, setClaiming] = useState(false)
 
   const score = scoreOf(progress)
   const rank = rankFor(score)
@@ -52,8 +53,20 @@ export default function BrasshavenFiles() {
     setEngineOpen(true)
   }
 
-  // Nothing renders until localStorage has been read, so the server-rendered
-  // markup and the first client paint agree.
+  const claimHandle = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (claiming) return
+    setClaiming(true)
+    const result = await register(handleEntry)
+    setClaiming(false)
+    if (result.error) {
+      setHandleError(result.error)
+      return
+    }
+    setHandleError(null)
+    start()
+  }
+
   if (!hydrated) {
     return (
       <div className="ctf-root flex items-center justify-center">
@@ -102,28 +115,53 @@ export default function BrasshavenFiles() {
             </p>
           </div>
 
-          <div className="mt-7 grid gap-3 sm:grid-cols-3">
-            {[
-              ['Encoding', 'Base64, hex, binary'],
-              ['Recon', 'Source, robots.txt, headers'],
-              ['Attack', 'Ciphers, hashes, injection'],
-            ].map(([title, blurb]) => (
-              <div key={title} className="brass-panel px-4 py-3">
-                <p className="stencil" style={{ color: '#d1a942' }}>
-                  {title}
-                </p>
-                <p className="mt-1 text-xs text-[#b9ab92]">{blurb}</p>
+          {/* ------------------------------------------------ sign the register */}
+          {progress.handle ? (
+            <div className="mt-7">
+              <p className="stencil">Signed in as</p>
+              <p className="display text-2xl text-[#d1a942]">{progress.handle}</p>
+              <button type="button" onClick={start} className="btn-brass mt-5 px-10 py-4 text-sm">
+                Open the first file
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={claimHandle} className="brass-panel mt-7 space-y-3 p-6 text-left">
+              <label className="stencil block" htmlFor="handle">
+                Sign the register to appear on the honours board
+              </label>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <input
+                  id="handle"
+                  className="field"
+                  value={handleEntry}
+                  maxLength={24}
+                  autoComplete="off"
+                  placeholder="Detective name"
+                  onChange={(e) => {
+                    setHandleEntry(e.target.value)
+                    setHandleError(null)
+                  }}
+                />
+                <button type="submit" className="btn-brass shrink-0" disabled={claiming}>
+                  {claiming ? 'Signing…' : 'Sign in'}
+                </button>
               </div>
-            ))}
-          </div>
-
-          <button type="button" onClick={start} className="btn-brass mt-8 px-10 py-4 text-sm">
-            Open the first file
-          </button>
+              {handleError && <p className="font-mono text-xs text-[#d98b76]">{handleError}</p>}
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <button type="button" onClick={start} className="btn-ghost">
+                  Play without signing
+                </button>
+                <Link href="/ctf/leaderboard" className="btn-ghost inline-flex items-center gap-1.5">
+                  <TrophyIcon className="h-3.5 w-3.5" />
+                  Honours board
+                </Link>
+              </div>
+            </form>
+          )}
 
           <p className="mt-6 text-xs" style={{ color: '#7d7364' }}>
-            Everything here is a simulation and runs entirely in your browser. Use these skills only
-            on systems you own or are authorised to test.
+            Everything here is a simulation. Use these skills only on systems you own or are
+            authorised to test.
           </p>
         </motion.div>
       </div>
@@ -136,7 +174,6 @@ export default function BrasshavenFiles() {
       <div className="ctf-fog" />
 
       <div className="relative z-10 mx-auto max-w-4xl px-5 py-8 sm:py-12">
-        {/* ---------------------------------------------------------- header */}
         <header className="brass-panel riveted mb-8 p-5">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <button
@@ -147,11 +184,11 @@ export default function BrasshavenFiles() {
               }}
               className="text-left"
             >
-              <p className="stencil">Ashgrave &amp; Vane</p>
+              <p className="stencil">{progress.handle ?? 'Unsigned -- practice run'}</p>
               <h1 className="display gaslight-title text-xl">The Brasshaven Files</h1>
             </button>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <div className="text-right">
                 <p className="stencil">{rank.title}</p>
                 <p className="display text-lg text-[#d1a942]">
@@ -159,6 +196,10 @@ export default function BrasshavenFiles() {
                   <span className="text-xs text-[#8f7330]"> / {TOTAL_POINTS}</span>
                 </p>
               </div>
+              <Link href="/ctf/leaderboard" className="btn-ghost inline-flex items-center gap-2">
+                <TrophyIcon className="h-4 w-4" />
+                Board
+              </Link>
               <button
                 type="button"
                 onClick={() => openTool(null)}
@@ -186,21 +227,32 @@ export default function BrasshavenFiles() {
           </div>
         </header>
 
+        {!persistent && (
+          <div
+            className="brass-panel mb-6 p-4 text-sm text-[#cfc3ab]"
+            style={{ borderLeft: '3px solid #a03a26' }}
+          >
+            <strong className="text-[#d98b76]">No database configured.</strong> Scores are held in
+            memory and will be lost when the server restarts.
+          </div>
+        )}
+
         <AnimatePresence mode="wait">
-          {/* ------------------------------------------------------ challenge */}
           {openChallenge && openCase ? (
             <ChallengePanel
               key={openChallenge.id}
               challenge={openChallenge}
               solvedFor={progress.solved[openChallenge.id]}
-              hintsUsed={progress.hints[openChallenge.id] ?? 0}
+              hintsUsed={hintsUsedFor(progress, openChallenge.id)}
+              hintText={hintTextFor(progress, openChallenge.id)}
+              debrief={debriefFor(progress, openChallenge.id)}
+              competing={progress.handle !== null}
               onRevealHint={() => revealHint(openChallenge.id)}
-              onSolve={() => solve(openChallenge)}
+              onSubmitFlag={(flag) => submitFlag(openChallenge.id, flag)}
               onOpenTool={openTool}
               onBack={() => setOpenChallengeId(null)}
             />
           ) : openCase ? (
-            /* ------------------------------------------------------ one case */
             <motion.div
               key={openCase.id}
               initial={{ opacity: 0, y: 12 }}
@@ -260,7 +312,6 @@ export default function BrasshavenFiles() {
               </div>
             </motion.div>
           ) : (
-            /* ----------------------------------------------------- the board */
             <motion.div
               key="board"
               initial={{ opacity: 0, y: 12 }}
@@ -326,41 +377,13 @@ export default function BrasshavenFiles() {
               })}
 
               <footer className="pt-8 text-center">
-                {confirmReset ? (
-                  <div className="inline-flex flex-wrap items-center justify-center gap-3">
-                    <span className="text-xs italic text-[#b9ab92]">
-                      Burn the file? Every countersign and point is lost.
-                    </span>
-                    <button
-                      type="button"
-                      className="btn-ghost"
-                      style={{ color: '#d98b76', borderColor: '#a03a26' }}
-                      onClick={() => {
-                        reset()
-                        setConfirmReset(false)
-                        setOpenCaseId(null)
-                        setOpenChallengeId(null)
-                      }}
-                    >
-                      Burn it
-                    </button>
-                    <button type="button" className="btn-ghost" onClick={() => setConfirmReset(false)}>
-                      Keep it
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setConfirmReset(true)}
-                    className="btn-ghost inline-flex items-center gap-2"
-                  >
-                    <ArrowPathIcon className="h-3.5 w-3.5" />
-                    Start a new investigation
-                  </button>
-                )}
-                <p className="mt-6 text-xs text-[#7d7364]">
-                  Progress is stored in this browser only. Use these skills only on systems you own
-                  or are authorised to test.
+                <Link href="/ctf/leaderboard" className="btn-ghost inline-flex items-center gap-2">
+                  <TrophyIcon className="h-3.5 w-3.5" />
+                  See the honours board
+                </Link>
+                <p className="mt-6 text-xs" style={{ color: '#7d7364' }}>
+                  Flags are checked by the agency, not your browser. Use these skills only on systems
+                  you own or are authorised to test.
                 </p>
               </footer>
             </motion.div>
