@@ -30,6 +30,7 @@ const MEDALS = ['#d1a942', '#b8b8b8', '#a9713f']
 export default function LeaderboardPage() {
   const [entries, setEntries] = useState<Entry[] | null>(null)
   const [persistent, setPersistent] = useState(true)
+  const [enabled, setEnabled] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const load = async () => {
@@ -39,6 +40,7 @@ export default function LeaderboardPage() {
       const data = await response.json()
       setEntries(data.entries ?? [])
       setPersistent(data.persistent !== false)
+      setEnabled(data.leaderboardEnabled !== false)
       setError(null)
     } catch {
       setError('Could not reach the agency records.')
@@ -74,7 +76,18 @@ export default function LeaderboardPage() {
           <span className="text-lg">⚙</span>
         </div>
 
-        {!persistent && (
+        {!enabled && (
+          <div
+            className="brass-panel mb-6 p-4 text-sm text-[#cfc3ab]"
+            style={{ borderLeft: '3px solid #a03a26' }}
+          >
+            <strong className="text-[#d98b76]">The board is closed.</strong> This server has no{' '}
+            <code className="font-mono text-[#8fd3bd]">CTF_SESSION_SECRET</code>, so nobody can sign
+            the register and no scores are recorded. The game itself still works.
+          </div>
+        )}
+
+        {enabled && !persistent && (
           <div
             className="brass-panel mb-6 p-4 text-sm text-[#cfc3ab]"
             style={{ borderLeft: '3px solid #a03a26' }}

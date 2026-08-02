@@ -3,7 +3,7 @@ import { cookies } from 'next/headers'
 import { hintsFor } from '@/lib/ctf/server/hints'
 import { debriefFor } from '@/lib/ctf/server/debriefs'
 import { getStore } from '@/lib/ctf/server/store'
-import { SESSION_COOKIE, readSessionToken } from '@/lib/ctf/server/session'
+import { SESSION_COOKIE, readSessionToken, sessionsAvailable } from '@/lib/ctf/server/session'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,12 +17,12 @@ export async function GET() {
   const store = getStore()
 
   if (!playerId) {
-    return NextResponse.json({ player: null, solved: {}, hints: {}, persistent: store.persistent })
+    return NextResponse.json({ player: null, solved: {}, hints: {}, persistent: store.persistent, leaderboardEnabled: sessionsAvailable() })
   }
 
   const player = await store.getPlayer(playerId)
   if (!player) {
-    return NextResponse.json({ player: null, solved: {}, hints: {}, persistent: store.persistent })
+    return NextResponse.json({ player: null, solved: {}, hints: {}, persistent: store.persistent, leaderboardEnabled: sessionsAvailable() })
   }
 
   const [solves, hintCounts] = await Promise.all([
@@ -43,5 +43,6 @@ export async function GET() {
     debriefs: Object.fromEntries(solves.map((s) => [s.challengeId, debriefFor(s.challengeId)])),
     hints,
     persistent: store.persistent,
+    leaderboardEnabled: sessionsAvailable(),
   })
 }

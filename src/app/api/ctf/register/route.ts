@@ -1,12 +1,27 @@
 import { NextResponse } from 'next/server'
 import { getStore } from '@/lib/ctf/server/store'
 import { normaliseHandle } from '@/lib/ctf/server/scoring'
-import { SESSION_COOKIE, createSessionToken, sessionCookieOptions } from '@/lib/ctf/server/session'
+import {
+  SESSION_COOKIE,
+  createSessionToken,
+  sessionCookieOptions,
+  sessionsAvailable,
+} from '@/lib/ctf/server/session'
 
 export const dynamic = 'force-dynamic'
 
 /** Claims a handle and issues a signed session cookie. */
 export async function POST(request: Request) {
+  if (!sessionsAvailable()) {
+    return NextResponse.json(
+      {
+        error:
+          'The honours board is closed -- this server has no CTF_SESSION_SECRET configured. You can still play; solves just will not be recorded.',
+      },
+      { status: 503 },
+    )
+  }
+
   let body: unknown
   try {
     body = await request.json()

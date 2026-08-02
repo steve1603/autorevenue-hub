@@ -19,9 +19,19 @@ export const SESSION_COOKIE = 'ctf_session'
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 90 // 90 days
 
 let cachedSecret: string | null = null
+let resolved = false
 
-function secret(): string {
-  if (cachedSecret) return cachedSecret
+/**
+ * Returns null in production when no secret is configured.
+ *
+ * The alternative -- a per-instance random secret -- would be worse than no
+ * leaderboard at all: every serverless instance would sign differently, so a
+ * player would be silently logged out at random and their score would scatter
+ * across phantom identities. Better to switch the leaderboard off and say so.
+ */
+function secret(): string | null {
+  if (resolved) return cachedSecret
+  resolved = true
 
   const configured = process.env.CTF_SESSION_SECRET
   if (configured && configured.length >= 16) {
@@ -30,12 +40,11 @@ function secret(): string {
   }
 
   if (process.env.NODE_ENV === 'production') {
-    // Failing loudly beats silently issuing tokens that every deployment
-    // instance signs differently -- players would be logged out at random and
-    // scores would scatter across phantom identities.
-    throw new Error(
-      'CTF_SESSION_SECRET must be set (32+ random characters) to run the leaderboard in production',
+    console.error(
+      '[ctf] CTF_SESSION_SECRET is not set -- the leaderboard is disabled. Set it to 32+ random characters to enable it.',
     )
+    cachedSecret = null
+    return null
   }
 
   // Development convenience only: a per-boot secret. Restarting the dev server
@@ -45,24 +54,39 @@ function secret(): string {
   return cachedSecret
 }
 
-function sign(playerId: string): string {
-  return createHmac('sha256', secret()).update(playerId).digest('hex')
+/**
+ * Whether sessions can be issued at all. When false the game stays completely
+ * playable -- flags are still checked -- but nothing is recorded and the UI
+ * says the leaderboard is unavailable rather than failing at the player.
+ */
+export function sessionsAvailable(): boolean {
+  return secret() !== null
 }
 
+function sign(playerId: string, key: string): string {
+  return createHmac('sha256', key).update(playerId).digest('hex')
+}
+
+/** Only call when `sessionsAvailable()` is true. */
 export function createSessionToken(playerId: string): string {
-  return `${playerId}.${sign(playerId)}`
+  const key = secret()
+  if (!key) throw new Error('cannot issue a session without CTF_SESSION_SECRET')
+  return `${playerId}.${sign(playerId, key)}`
 }
 
 /** Returns the player id only if the signature is valid. */
 export function readSessionToken(token: string | undefined): string | null {
   if (!token) return null
 
+  const key = secret()
+  if (!key) return null
+
   const separator = token.lastIndexOf('.')
   if (separator <= 0) return null
 
   const playerId = token.slice(0, separator)
   const providedSignature = token.slice(separator + 1)
-  const expectedSignature = sign(playerId)
+  const expectedSignature = sign(playerId, key)
 
   // Both are hex of the same length, so a length mismatch is already a failure
   // and timingSafeEqual would throw on it.

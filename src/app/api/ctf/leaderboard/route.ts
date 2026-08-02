@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getStore } from '@/lib/ctf/server/store'
+import { sessionsAvailable } from '@/lib/ctf/server/session'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,5 +26,6 @@ export async function GET(request: Request) {
           : 0,
     })),
     persistent: store.persistent,
+    leaderboardEnabled: sessionsAvailable(),
   })
 }

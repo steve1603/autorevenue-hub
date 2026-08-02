@@ -28,7 +28,8 @@ import ChallengePanel from '@/components/ctf/ChallengePanel'
 const TOTAL_CHALLENGES = CASES.reduce((n, c) => n + c.challenges.length, 0)
 
 export default function BrasshavenFiles() {
-  const { progress, hydrated, persistent, start, register, submitFlag, revealHint } = useProgress()
+  const { progress, hydrated, persistent, leaderboardEnabled, start, register, submitFlag, revealHint } =
+    useProgress()
   const [openCaseId, setOpenCaseId] = useState<string | null>(null)
   const [openChallengeId, setOpenChallengeId] = useState<string | null>(null)
   const [engineOpen, setEngineOpen] = useState(false)
@@ -116,7 +117,19 @@ export default function BrasshavenFiles() {
           </div>
 
           {/* ------------------------------------------------ sign the register */}
-          {progress.handle ? (
+          {!leaderboardEnabled ? (
+            <div className="brass-panel mt-7 p-6 text-left">
+              <p className="stencil mb-2">The honours board is closed</p>
+              <p className="text-sm leading-relaxed text-[#cfc3ab]">
+                This server has no <code className="font-mono text-[#8fd3bd]">CTF_SESSION_SECRET</code>{' '}
+                configured, so scores cannot be recorded. Every case is still fully playable and
+                flags are still checked -- nothing is kept afterwards.
+              </p>
+              <button type="button" onClick={start} className="btn-brass mt-5 px-10 py-4 text-sm">
+                Open the first file
+              </button>
+            </div>
+          ) : progress.handle ? (
             <div className="mt-7">
               <p className="stencil">Signed in as</p>
               <p className="display text-2xl text-[#d1a942]">{progress.handle}</p>
@@ -184,7 +197,9 @@ export default function BrasshavenFiles() {
               }}
               className="text-left"
             >
-              <p className="stencil">{progress.handle ?? 'Unsigned -- practice run'}</p>
+              <p className="stencil">
+                {progress.handle ?? (leaderboardEnabled ? 'Unsigned -- practice run' : 'Board closed -- practice run')}
+              </p>
               <h1 className="display gaslight-title text-xl">The Brasshaven Files</h1>
             </button>
 
@@ -196,10 +211,12 @@ export default function BrasshavenFiles() {
                   <span className="text-xs text-[#8f7330]"> / {TOTAL_POINTS}</span>
                 </p>
               </div>
-              <Link href="/ctf/leaderboard" className="btn-ghost inline-flex items-center gap-2">
-                <TrophyIcon className="h-4 w-4" />
-                Board
-              </Link>
+              {leaderboardEnabled && (
+                <Link href="/ctf/leaderboard" className="btn-ghost inline-flex items-center gap-2">
+                  <TrophyIcon className="h-4 w-4" />
+                  Board
+                </Link>
+              )}
               <button
                 type="button"
                 onClick={() => openTool(null)}

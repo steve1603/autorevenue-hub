@@ -93,9 +93,14 @@ SUPABASE_SERVICE_ROLE_KEY=<service role key>   # server-side only, never NEXT_PU
 CTF_SESSION_SECRET=<32+ random characters>
 ```
 
-`CTF_SESSION_SECRET` is required in production and the server refuses to start
-the leaderboard without it — a per-instance random secret would scatter one
-player's score across several phantom identities.
+If `CTF_SESSION_SECRET` is missing in production the leaderboard switches
+itself off and both screens say so: signing the register returns a clean 503,
+the sign-in form is replaced by an explanation, and the game stays fully
+playable with flags still checked. The server deliberately does *not* fall back
+to a generated secret — every serverless instance would sign differently, so a
+player would be logged out at random and their score would scatter across
+phantom identities. A closed board that admits it beats a board that quietly
+loses people.
 
 ## How it is put together
 

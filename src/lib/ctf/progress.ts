@@ -45,6 +45,8 @@ export function useProgress() {
   const [hydrated, setHydrated] = useState(false)
   /** False when the server is storing scores in memory (development only). */
   const [persistent, setPersistent] = useState(true)
+  /** False when the server has no session secret, so no score can be recorded. */
+  const [leaderboardEnabled, setLeaderboardEnabled] = useState(true)
 
   const load = useCallback(async () => {
     let started = false
@@ -59,6 +61,7 @@ export function useProgress() {
       if (response.ok) {
         const data = await response.json()
         setPersistent(data.persistent !== false)
+        setLeaderboardEnabled(data.leaderboardEnabled !== false)
         setProgress({
           solved: data.solved ?? {},
           debriefs: data.debriefs ?? {},
@@ -167,7 +170,17 @@ export function useProgress() {
     }
   }, [])
 
-  return { progress, hydrated, persistent, start, register, submitFlag, revealHint, refresh: load }
+  return {
+    progress,
+    hydrated,
+    persistent,
+    leaderboardEnabled,
+    start,
+    register,
+    submitFlag,
+    revealHint,
+    refresh: load,
+  }
 }
 
 export function scoreOf(progress: Progress): number {
