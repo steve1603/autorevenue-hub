@@ -12,6 +12,7 @@ import { FLAG_FORMAT, pointsFor, type Challenge, type ToolId } from '@/lib/ctf/c
 import { critiqueFlag } from '@/lib/ctf/verify'
 import type { SubmitResult } from '@/lib/ctf/progress'
 import EvidenceBoard from './EvidenceBoard'
+import SilhouetteScene from './SilhouetteScene'
 
 /** Minimal inline formatter for the briefing copy: **bold**, *italic* and `code`. */
 function Rich({ text }: { text: string }) {
@@ -150,6 +151,8 @@ export default function ChallengePanel({
           </div>
         )}
       </header>
+
+      <SilhouetteScene id={challenge.id} height={180} />
 
       <div className="brass-panel riveted p-6 text-[0.95rem] leading-relaxed text-[#cfc3ab]">
         <Rich text={challenge.brief} />

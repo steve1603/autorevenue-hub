@@ -24,6 +24,7 @@ import {
 } from '@/lib/ctf/progress'
 import DifferenceEngine from '@/components/ctf/DifferenceEngine'
 import ChallengePanel from '@/components/ctf/ChallengePanel'
+import SilhouetteScene from '@/components/ctf/SilhouetteScene'
 
 const TOTAL_CHALLENGES = CASES.reduce((n, c) => n + c.challenges.length, 0)
 
@@ -96,6 +97,8 @@ export default function BrasshavenFiles() {
           <p className="mt-4 text-lg italic text-[#b9ab92]">
             A capture-the-flag adventure for people who have never captured a flag
           </p>
+
+          <SilhouetteScene id="title" height={210} className="mt-7" />
 
           <div className="divider-gear my-8">
             <span className="text-lg">⚙</span>
@@ -291,6 +294,8 @@ export default function BrasshavenFiles() {
                 <h2 className="display gaslight-title text-4xl">{openCase.title}</h2>
                 <p className="mt-1 text-sm italic text-[#b9ab92]">{openCase.subtitle}</p>
               </header>
+
+              <SilhouetteScene id={openCase.id} height={190} />
 
               <blockquote className="border-l-2 border-[#5c8f80] pl-4 text-sm italic leading-relaxed text-[#9fb5ad]">
                 {openCase.epigraph}

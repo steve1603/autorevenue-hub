@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './ctf.css'
+import './scenes.css'
 
 export const metadata: Metadata = {
   title: 'The Brasshaven Files -- a steampunk noir CTF',

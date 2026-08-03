@@ -102,6 +102,36 @@ player would be logged out at random and their score would scatter across
 phantom identities. A closed board that admits it beats a board that quietly
 loses people.
 
+## Silhouette scenes
+
+Every case and every puzzle opens with an animated gaslamp-noir plate: the
+burning filing cabinet, the lamplighter walking his round, the telegraph wire
+sparking, the eight-lock vault, nine airships leaving at dawn.
+
+They are inline SVG built from shared primitives (skyline, lamp post, detective,
+airship, gear, fog, rain), animated with CSS transforms and opacity only. No
+image assets, no animation loop, no client JavaScript -- the component is
+server-rendered and never enters the bundle. Motion is decoration, never
+information: under `prefers-reduced-motion` all animation stops and each scene
+still reads as a composed still.
+
+### Three SVG traps worth knowing about
+
+All three were caught by rendering a contact sheet and looking at it, not by
+the type checker:
+
+1. **A CSS `transform` replaces an SVG `transform` attribute.** Putting an
+   animated class straight onto `<g transform="translate(600 84) scale(0.72)">`
+   discards the position *and* the scale, dumping a full-size sprite at the
+   origin. Animated classes always go on a nested `<g>`.
+2. **Keyframes that set `opacity` beat an `opacity` attribute** on the same
+   element. Every soft 0.06-0.16 glow was being forced to ~1 and blowing out the
+   plate. The class goes on a wrapper so the two values multiply.
+3. **Percentage translations resolve against the element's own bounding box**,
+   not the viewBox, so a figure told to walk 108% moved about its own width.
+   Use viewBox units with `transform-box: view-box`; use
+   `transform-box: fill-box` with keyword origins for anything that rotates.
+
 ## How it is put together
 
 ```
@@ -109,6 +139,7 @@ src/app/ctf/
   page.tsx        game shell: title card, case board, case view, score, ranks
   layout.tsx      route metadata
   ctf.css         gaslamp theme, scoped to .ctf-root (no image assets)
+  scenes.css      silhouette scene keyframes
 src/lib/ctf/
   cases.ts        narrative and evidence -- the client-safe half only
   ciphers.ts      pure encode/decode helpers, incl. a from-scratch SHA-256
@@ -118,6 +149,7 @@ src/lib/ctf/
 src/app/api/ctf/
   register/ submit/ hint/ state/ terminal/ vault/ leaderboard/
 src/components/ctf/
+  SilhouetteScene.tsx     animated SVG scene for every case and puzzle
   DifferenceEngine.tsx    the decoder workbench (slide-over drawer)
   ChallengePanel.tsx      brief, evidence, hints, flag entry, debrief
   EvidenceBoard.tsx       renders each evidence kind
