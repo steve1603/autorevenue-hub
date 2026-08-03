@@ -48,8 +48,9 @@ AutoRevenue Hub is a comprehensive platform designed to generate passive income 
 
 ### 6. The Brasshaven Files — beginner CTF game
 
-A steampunk-noir capture-the-flag adventure at **`/ctf`**, built for people who
-have never done a CTF. Five cases, 14 challenges, covering encoding, web
+A steampunk-noir capture-the-flag adventure at **`/ctf`** with three difficulty
+tracks -- from complete beginner to real cryptanalysis. The beginner track is
+five cases and 14 challenges, covering encoding, web
 reconnaissance, classical ciphers, hash cracking and SQL injection — each one
 followed by a plain-English explanation of the real technique behind it.
 

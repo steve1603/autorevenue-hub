@@ -263,3 +263,228 @@ export function sha256Hex(input: string): string {
 
   return h.map((x) => x.toString(16).padStart(8, '0')).join('')
 }
+
+/* ------------------------------------------------------------------ base32 */
+
+const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+
+export function decodeBase32(input: string): string {
+  const cleaned = input.toUpperCase().replace(/=+$/, '').replace(/\s+/g, '')
+  if (!cleaned) return ''
+  if (!/^[A-Z2-7]*$/.test(cleaned)) {
+    throw new Error('That is not valid Base32 -- it may only contain A-Z and 2-7')
+  }
+  let bits = 0
+  let value = 0
+  const bytes: number[] = []
+  for (const ch of cleaned) {
+    value = (value << 5) | B32.indexOf(ch)
+    bits += 5
+    if (bits >= 8) {
+      bytes.push((value >>> (bits - 8)) & 255)
+      bits -= 8
+    }
+  }
+  return new TextDecoder().decode(Uint8Array.from(bytes))
+}
+
+export function encodeBase32(input: string): string {
+  const bytes = new TextEncoder().encode(input)
+  let bits = 0
+  let value = 0
+  let out = ''
+  for (const b of bytes) {
+    value = (value << 8) | b
+    bits += 8
+    while (bits >= 5) {
+      out += B32[(value >>> (bits - 5)) & 31]
+      bits -= 5
+    }
+  }
+  if (bits > 0) out += B32[(value << (5 - bits)) & 31]
+  while (out.length % 8) out += '='
+  return out
+}
+
+/* ------------------------------------------------- repeating-key XOR + keysize */
+
+function hexBytes(input: string): Uint8Array {
+  const cleaned = input.replace(/0x/gi, '').replace(/[\s,:]+/g, '')
+  if (cleaned.length % 2 !== 0 || !/^[0-9a-fA-F]*$/.test(cleaned)) {
+    throw new Error('Expected hex bytes, e.g. "7c 4b 5f"')
+  }
+  const out = new Uint8Array(cleaned.length / 2)
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(cleaned.slice(i * 2, i * 2 + 2), 16)
+  return out
+}
+
+/** XOR hex bytes against a repeating text key. */
+export function repeatingXor(hexInput: string, key: string): string {
+  if (!key) throw new Error('A key is required')
+  const bytes = hexBytes(hexInput)
+  return Array.from(bytes, (b, i) => String.fromCharCode(b ^ key.charCodeAt(i % key.length))).join('')
+}
+
+function hamming(a: Uint8Array, b: Uint8Array): number {
+  let bits = 0
+  for (let i = 0; i < a.length; i++) {
+    let x = a[i] ^ b[i]
+    while (x) {
+      bits += x & 1
+      x >>= 1
+    }
+  }
+  return bits
+}
+
+/**
+ * Scores candidate key lengths by normalised Hamming distance.
+ *
+ * Blocks encrypted under the same stretch of keystream differ only by their
+ * plaintexts, so the true key length -- and its multiples -- score lowest.
+ */
+export function keysizeScores(hexInput: string, max = 24): { size: number; score: number }[] {
+  const bytes = hexBytes(hexInput)
+  const results: { size: number; score: number }[] = []
+  for (let size = 2; size <= max; size++) {
+    if (bytes.length < size * 4) break
+    let total = 0
+    let count = 0
+    for (let i = 0; i + 2 * size <= bytes.length && count < 8; i += size) {
+      total += hamming(bytes.subarray(i, i + size), bytes.subarray(i + size, i + 2 * size)) / size
+      count++
+    }
+    if (count > 0) results.push({ size, score: +(total / count).toFixed(3) })
+  }
+  return results.sort((a, b) => a.score - b.score)
+}
+
+/** Breaks each column of a repeating-key XOR as an independent single-byte XOR. */
+export function solveRepeatingXor(hexInput: string, size: number): { key: string; text: string } {
+  const bytes = hexBytes(hexInput)
+  let key = ''
+  for (let col = 0; col < size; col++) {
+    let bestByte = 0
+    let bestScore = -Infinity
+    for (let k = 0; k < 256; k++) {
+      let score = 0
+      for (let i = col; i < bytes.length; i += size) {
+        const c = bytes[i] ^ k
+        if ((c >= 97 && c <= 122) || c === 32) score += 2
+        else if (c >= 65 && c <= 90) score += 1
+        else if (c < 32 || c > 126) score -= 8
+      }
+      if (score > bestScore) {
+        bestScore = score
+        bestByte = k
+      }
+    }
+    key += String.fromCharCode(bestByte)
+  }
+  return { key, text: repeatingXor(hexInput, key) }
+}
+
+/* -------------------------------------------------------------- zero-width */
+
+const ZW_ZERO = '​'
+const ZW_ONE = '‌'
+
+/** Pulls the invisible bits out of a cover text and reassembles them as bytes. */
+export function revealZeroWidth(input: string): { hidden: string; visible: string; bits: number } {
+  const marks = [...input].filter((c) => c === ZW_ZERO || c === ZW_ONE)
+  const bits = marks.map((c) => (c === ZW_ONE ? '1' : '0')).join('')
+  let hidden = ''
+  for (let i = 0; i + 8 <= bits.length; i += 8) {
+    hidden += String.fromCharCode(parseInt(bits.slice(i, i + 8), 2))
+  }
+  const visible = [...input].filter((c) => c !== ZW_ZERO && c !== ZW_ONE).join('')
+  return { hidden, visible, bits: bits.length }
+}
+
+/* ----------------------------------------------------------------- letters */
+
+export function letterFrequency(input: string): { letter: string; count: number; pct: number }[] {
+  const counts = new Map<string, number>()
+  let total = 0
+  for (const ch of input.toLowerCase()) {
+    if (ch >= 'a' && ch <= 'z') {
+      counts.set(ch, (counts.get(ch) ?? 0) + 1)
+      total++
+    }
+  }
+  return [...counts.entries()]
+    .map(([letter, count]) => ({ letter, count, pct: total ? +((count / total) * 100).toFixed(1) : 0 }))
+    .sort((a, b) => b.count - a.count)
+}
+
+/* --------------------------------------------------------------------- rsa */
+
+function modpow(base: bigint, exp: bigint, mod: bigint): bigint {
+  let result = 1n
+  let b = base % mod
+  let e = exp
+  while (e > 0n) {
+    if (e & 1n) result = (result * b) % mod
+    b = (b * b) % mod
+    e >>= 1n
+  }
+  return result
+}
+
+function egcd(a: bigint, b: bigint): [bigint, bigint, bigint] {
+  if (b === 0n) return [a, 1n, 0n]
+  const [g, x, y] = egcd(b, a % b)
+  return [g, y, x - (a / b) * y]
+}
+
+export interface RsaBreak {
+  p: string
+  q: string
+  d: string
+  text: string
+}
+
+/**
+ * Factors a small modulus by trial division, derives d, and decrypts.
+ *
+ * Only viable because the modulus is tiny -- which is the entire point of the
+ * challenge. Guard the loop so a real key size fails fast instead of hanging.
+ */
+export function breakRsa(nStr: string, eStr: string, ciphers: string[], chunkBytes = 3): RsaBreak {
+  const n = BigInt(nStr.trim())
+  const e = BigInt(eStr.trim())
+  if (n > 10n ** 14n) throw new Error('That modulus is too large to factor here -- this tool is for toy keys')
+
+  let p = 0n
+  for (let i = 2n; i * i <= n; i++) {
+    if (n % i === 0n) {
+      p = i
+      break
+    }
+  }
+  if (p === 0n) throw new Error('n appears to be prime -- check the value')
+
+  const q = n / p
+  const phi = (p - 1n) * (q - 1n)
+  const d = ((egcd(e, phi)[1] % phi) + phi) % phi
+
+  const bytes: number[] = []
+  for (const c of ciphers) {
+    if (!c.trim()) continue
+    let v = modpow(BigInt(c.trim()), d, n)
+    const chunk: number[] = []
+    for (let k = 0; k < chunkBytes; k++) {
+      chunk.unshift(Number(v & 255n))
+      v >>= 8n
+    }
+    // Leading zero bytes are padding from a short final block.
+    bytes.push(...chunk.filter((b, i) => b !== 0 || i > 0))
+  }
+
+  return {
+    p: p.toString(),
+    q: q.toString(),
+    d: d.toString(),
+    text: new TextDecoder().decode(Uint8Array.from(bytes)),
+  }
+}

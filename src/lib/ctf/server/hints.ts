@@ -78,6 +78,36 @@ const HINTS: Record<string, string[]> = {
     "That phrase was TELEGRAPH GHOST. A Vigenère key uses letters only -- run the two words together with no space.",
     "Difference Engine, Vigenère tab. Key: TELEGRAPHGHOST. Decode, then write the countersign with underscores instead of spaces.",
   ],
+  "m1-1": [
+    "Count the alphabet. Twenty-six letters plus six digits is thirty-two symbols, and thirty-two is 2^5.",
+    "Base32. Five bits per character instead of the six in Base64, which is why the padding runs longer.",
+    "Difference Engine, Base32 tab. Paste the whole block including the equals signs.",
+  ],
+  "m1-2": [
+    "Single-byte XOR gives you readable runs that break and recover at a fixed interval. That interval is the key length.",
+    "The key is the company's own name, struck on the brass plate above the door: MERIDIAN.",
+    "Difference Engine, Repeating XOR tab. Paste the hex, set the key to MERIDIAN.",
+  ],
+  "m1-3": [
+    "Count the characters in the note, then count the characters you can see. They do not agree.",
+    "Zero-width characters -- U+200B and U+200C -- sit between the visible letters. One is a 0, the other a 1.",
+    "Difference Engine, Zero-Width tab. Paste the note in; it extracts the bits and turns them into bytes.",
+  ],
+  "x1-1": [
+    "Key length first, plaintext second. Never the other way round.",
+    "For each candidate size, take adjacent blocks of that size and compute the normalised Hamming distance. The real size scores lowest.",
+    "Once you have the size, slice the ciphertext into that many columns and break each one as an independent single-byte XOR. The Keysize tab does the scoring; the Repeating XOR tab will finish it.",
+  ],
+  "x1-2": [
+    "n is about 2^32. Its square root is about 65,000. That is not a large number of divisions.",
+    "Factor n into p and q, then phi = (p-1)(q-1), then d is the modular inverse of e mod phi.",
+    "Difference Engine, RSA tab: it factors n, derives d, and decrypts the blocks. Each block is three bytes.",
+  ],
+  "x2-2": [
+    "You are not going to recover the key, and you do not need to.",
+    "XOR the two ciphertexts together. The keystream is identical in both, so it cancels: what remains is P1 XOR P2.",
+    "XOR that result against the clerk's remembered opening. Whatever falls out is the beginning of the second message -- the Repeating XOR tab will do it if you paste the first result as hex and the crib as the key.",
+  ],
 }
 
 export function hintsFor(challengeId: string): string[] {

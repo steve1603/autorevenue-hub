@@ -25,6 +25,14 @@ export type ToolId =
   | 'morse'
   | 'xor'
   | 'sha256'
+  | 'base32'
+  | 'rkxor'
+  | 'zerowidth'
+  | 'frequency'
+  | 'keysize'
+  | 'rsa'
+  | 'jwt'
+  | 'railfence'
 
 export type Evidence =
   | { kind: 'document'; label: string; body: string }
@@ -40,6 +48,21 @@ export type Evidence =
   /** The bypass is evaluated by /api/ctf/vault, which holds the countersign. */
   | { kind: 'login'; label: string; host: string }
   | { kind: 'wordlist'; label: string; target: string; names: string[]; note: string }
+  /**
+   * A generic instrument the player submits values to, evaluated by
+   * /api/ctf/apparatus. One component and one route serve every advanced
+   * challenge that needs a server to judge an attack -- forged tickets,
+   * tampered cookies, injected queries, predicted tokens.
+   */
+  | {
+      kind: 'apparatus'
+      label: string
+      /** Which machine on the far end -- see src/lib/ctf/server/apparatus.ts. */
+      endpoint: string
+      fields: { name: string; label: string; placeholder?: string; multiline?: boolean }[]
+      submitLabel: string
+      note?: string
+    }
 
 export interface Challenge {
   id: string

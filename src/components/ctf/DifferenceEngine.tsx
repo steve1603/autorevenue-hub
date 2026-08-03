@@ -18,6 +18,14 @@ import {
   vigenereDecode,
   vigenereEncode,
   xorBruteForce,
+  decodeBase32,
+  encodeBase32,
+  repeatingXor,
+  keysizeScores,
+  solveRepeatingXor,
+  revealZeroWidth,
+  letterFrequency,
+  breakRsa,
 } from '@/lib/ctf/ciphers'
 import type { ToolId } from '@/lib/ctf/cases'
 
@@ -30,6 +38,12 @@ const TOOLS: { id: ToolId; label: string; blurb: string }[] = [
   { id: 'morse', label: 'Morse', blurb: 'Dots and dashes. Space between letters, "/" between words.' },
   { id: 'xor', label: 'XOR', blurb: 'Each byte combined with a key byte. Reversible with the same key.' },
   { id: 'sha256', label: 'SHA-256', blurb: 'One-way fingerprint. Cannot be reversed -- only guessed at.' },
+  { id: 'base32', label: 'Base32', blurb: 'A-Z and 2-7 only. Five bits per character, so the padding runs long.' },
+  { id: 'rkxor', label: 'Repeating XOR', blurb: 'XOR hex against a text key that cycles. Also does the crib drag.' },
+  { id: 'keysize', label: 'Keysize', blurb: 'Scores candidate key lengths by Hamming distance. Lowest wins.' },
+  { id: 'zerowidth', label: 'Zero-Width', blurb: 'Pulls invisible U+200B / U+200C characters out of a cover text.' },
+  { id: 'frequency', label: 'Frequency', blurb: 'Letter counts, for breaking a substitution by hand.' },
+  { id: 'rsa', label: 'RSA', blurb: 'Factors a toy modulus, derives d, and decrypts the blocks.' },
 ]
 
 function CopyButton({ value }: { value: string }) {
@@ -313,6 +327,207 @@ function HashPane({ input, setInput }: { input: string; setInput: (v: string) =>
   )
 }
 
+
+function RepeatingXorPane({ input, setInput }: { input: string; setInput: (v: string) => void }) {
+  const [key, setKey] = useState('')
+  const [size, setSize] = useState(0)
+  const { value, error } = useSafe(
+    () => (input.trim() && key ? repeatingXor(input, key) : ''),
+    [input, key],
+  )
+  const solved = useSafe(
+    () => (input.trim() && size > 0 ? solveRepeatingXor(input, size) : null),
+    [input, size],
+  )
+
+  return (
+    <div className="space-y-3">
+      <textarea
+        className="field ctf-scroll"
+        rows={4}
+        spellCheck={false}
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        placeholder="Paste the hex bytes here."
+      />
+      <input
+        className="field"
+        spellCheck={false}
+        value={key}
+        onChange={(e) => setKey(e.target.value)}
+        placeholder="Key text, e.g. MERIDIAN (or a crib to drag)"
+      />
+      <div className="flex items-center justify-between">
+        <span className="stencil">Result</span>
+        <CopyButton value={value ?? ''} />
+      </div>
+      <Output value={value ?? ''} error={key ? error : null} />
+
+      <div className="flex items-center gap-3 pt-2">
+        <span className="stencil whitespace-nowrap">Recover key of length</span>
+        <input
+          type="number"
+          min={0}
+          max={40}
+          value={size || ''}
+          onChange={(e) => setSize(Number(e.target.value))}
+          className="field"
+          style={{ width: '5rem' }}
+          aria-label="Key length to solve for"
+        />
+      </div>
+      {solved.value && (
+        <>
+          <p className="stencil">Recovered key: {JSON.stringify(solved.value.key)}</p>
+          <Output value={solved.value.text} error={null} />
+        </>
+      )}
+      {size > 0 && solved.error && <Output value="" error={solved.error} />}
+    </div>
+  )
+}
+
+function KeysizePane({ input, setInput }: { input: string; setInput: (v: string) => void }) {
+  const { value, error } = useSafe(() => (input.trim() ? keysizeScores(input) : []), [input])
+  return (
+    <div className="space-y-3">
+      <textarea
+        className="field ctf-scroll"
+        rows={4}
+        spellCheck={false}
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        placeholder="Paste the hex ciphertext here."
+      />
+      {error && <Output value="" error={error} />}
+      {value && value.length > 0 && (
+        <>
+          <p className="stencil">Normalised Hamming distance -- lowest is the likeliest key length</p>
+          <div className="ctf-scroll max-h-64 overflow-y-auto rounded-sm border border-[rgba(209,169,66,0.2)]">
+            {value.slice(0, 12).map((row, i) => (
+              <div
+                key={row.size}
+                className="flex items-center gap-3 border-b border-[rgba(209,169,66,0.1)] px-3 py-1.5 last:border-0"
+                style={i === 0 ? { background: 'rgba(209,169,66,0.14)' } : undefined}
+              >
+                <span className="w-10 font-mono text-xs text-[#8f7330]">{row.size}</span>
+                <span className="font-mono text-xs" style={{ color: i === 0 ? '#d1a942' : '#cbb98f' }}>
+                  {row.score.toFixed(3)}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs italic text-[#b9ab92]">
+            Multiples of the true length score well too -- try the smallest strong candidate first.
+          </p>
+        </>
+      )}
+    </div>
+  )
+}
+
+function ZeroWidthPane({ input, setInput }: { input: string; setInput: (v: string) => void }) {
+  const { value } = useSafe(() => (input ? revealZeroWidth(input) : null), [input])
+  return (
+    <div className="space-y-3">
+      <textarea
+        className="field ctf-scroll"
+        rows={5}
+        spellCheck={false}
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        placeholder="Paste the suspect text here, invisible characters and all."
+      />
+      {value && (
+        <>
+          <p className="stencil">
+            {value.bits} hidden bits found in {value.visible.length} visible characters
+          </p>
+          <Output value={value.hidden} error={null} />
+        </>
+      )}
+    </div>
+  )
+}
+
+function FrequencyPane({ input, setInput }: { input: string; setInput: (v: string) => void }) {
+  const rows = useMemo(() => (input.trim() ? letterFrequency(input) : []), [input])
+  return (
+    <div className="space-y-3">
+      <textarea
+        className="field ctf-scroll"
+        rows={5}
+        spellCheck={false}
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        placeholder="Paste the cryptogram here."
+      />
+      {rows.length > 0 && (
+        <>
+          <p className="stencil">English order runs roughly E T A O I N S H R D L U</p>
+          <div className="ctf-scroll max-h-64 overflow-y-auto rounded-sm border border-[rgba(209,169,66,0.2)]">
+            {rows.map((row) => (
+              <div
+                key={row.letter}
+                className="flex items-center gap-3 border-b border-[rgba(209,169,66,0.1)] px-3 py-1 last:border-0"
+              >
+                <span className="w-6 font-mono text-xs text-[#d1a942]">{row.letter}</span>
+                <span className="w-12 font-mono text-[0.7rem] text-[#8f7330]">{row.pct}%</span>
+                <span
+                  className="h-2 rounded-sm"
+                  style={{ width: `${Math.min(row.pct * 6, 100)}%`, background: '#8f7330' }}
+                />
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function RsaPane() {
+  const [n, setN] = useState('')
+  const [e, setE] = useState('65537')
+  const [blocks, setBlocks] = useState('')
+  const { value, error } = useSafe(
+    () =>
+      n.trim() && blocks.trim()
+        ? breakRsa(n, e, blocks.split(/[\s,]+/).filter(Boolean))
+        : null,
+    [n, e, blocks],
+  )
+
+  return (
+    <div className="space-y-3">
+      <input className="field" value={n} onChange={(ev) => setN(ev.target.value)} placeholder="n (modulus)" spellCheck={false} />
+      <input className="field" value={e} onChange={(ev) => setE(ev.target.value)} placeholder="e (public exponent)" spellCheck={false} />
+      <textarea
+        className="field ctf-scroll"
+        rows={4}
+        spellCheck={false}
+        value={blocks}
+        onChange={(ev) => setBlocks(ev.target.value)}
+        placeholder="Ciphertext blocks, one per line"
+      />
+      {error && <Output value="" error={error} />}
+      {value && (
+        <>
+          <p className="stencil">
+            p = {value.p} · q = {value.q}
+          </p>
+          <p className="stencil break-all">d = {value.d}</p>
+          <div className="flex items-center justify-between">
+            <span className="stencil">Plaintext</span>
+            <CopyButton value={value.text} />
+          </div>
+          <Output value={value.text} error={null} />
+        </>
+      )}
+    </div>
+  )
+}
+
 export default function DifferenceEngine({
   open,
   onClose,
@@ -326,6 +541,7 @@ export default function DifferenceEngine({
   // Each tool keeps its own scratch text so switching tabs does not lose work.
   const [scratch, setScratch] = useState<Record<ToolId, string>>({
     base64: '', hex: '', binary: '', caesar: '', vigenere: '', morse: '', xor: '', sha256: '',
+    base32: '', rkxor: '', zerowidth: '', frequency: '', keysize: '', rsa: '', jwt: '', railfence: '',
   })
   const [lastRequested, setLastRequested] = useState<ToolId | null>(null)
 
@@ -408,6 +624,14 @@ export default function DifferenceEngine({
               {tool === 'vigenere' && <VigenerePane input={input} setInput={set} />}
               {tool === 'xor' && <XorPane input={input} setInput={set} />}
               {tool === 'sha256' && <HashPane input={input} setInput={set} />}
+              {tool === 'base32' && (
+                <SimplePane input={input} setInput={set} decode={decodeBase32} encode={encodeBase32} placeholder="Paste the Base32 here." />
+              )}
+              {tool === 'rkxor' && <RepeatingXorPane input={input} setInput={set} />}
+              {tool === 'keysize' && <KeysizePane input={input} setInput={set} />}
+              {tool === 'zerowidth' && <ZeroWidthPane input={input} setInput={set} />}
+              {tool === 'frequency' && <FrequencyPane input={input} setInput={set} />}
+              {tool === 'rsa' && <RsaPane />}
             </div>
 
             <footer className="border-t border-[rgba(209,169,66,0.2)] px-5 py-3">

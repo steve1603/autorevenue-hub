@@ -10,16 +10,24 @@ import {
   ArrowLeftIcon,
   TrophyIcon,
 } from '@heroicons/react/24/outline'
-import { CASES, TOTAL_POINTS, rankFor, type ToolId } from '@/lib/ctf/cases'
+import type { ToolId } from '@/lib/ctf/cases'
+import {
+  DEFAULT_TRACK,
+  TRACKS,
+  rankForTrack,
+  totalPointsFor,
+  trackFor,
+  type Difficulty,
+} from '@/lib/ctf/tracks'
 import {
   caseProgress,
   debriefFor,
   hintTextFor,
   hintsUsedFor,
   isCaseUnlocked,
-  isGameComplete,
-  scoreOf,
-  solvedCount,
+  isTrackComplete,
+  trackScore,
+  trackSolved,
   useProgress,
 } from '@/lib/ctf/progress'
 import DifferenceEngine from '@/components/ctf/DifferenceEngine'
@@ -28,7 +36,7 @@ import SilhouetteScene from '@/components/ctf/SilhouetteScene'
 import SoundToggle from '@/components/ctf/SoundToggle'
 import { audio, type Mood } from '@/lib/ctf/audio'
 
-const TOTAL_CHALLENGES = CASES.reduce((n, c) => n + c.challenges.length, 0)
+const TRACK_KEY = 'brasshaven-files:track'
 
 export default function BrasshavenFiles() {
   const { progress, hydrated, persistent, leaderboardEnabled, start, register, submitFlag, revealHint } =
@@ -41,11 +49,40 @@ export default function BrasshavenFiles() {
   const [handleError, setHandleError] = useState<string | null>(null)
   const [claiming, setClaiming] = useState(false)
 
-  const score = scoreOf(progress)
-  const unlockedCount = CASES.filter((_, i) => isCaseUnlocked(i, progress)).length
-  const rank = rankFor(score)
-  const solved = solvedCount(progress)
-  const complete = isGameComplete(progress)
+  const [difficulty, setDifficulty] = useState<Difficulty>(DEFAULT_TRACK)
+
+  // Which track the player last chose. Cosmetic routing only -- every score is
+  // still awarded and stored by the server.
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(TRACK_KEY)
+      if (stored) setDifficulty(trackFor(stored).id)
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
+  const track = trackFor(difficulty)
+  const CASES = track.cases
+  const TOTAL_CHALLENGES = CASES.reduce((n, c) => n + c.challenges.length, 0)
+  const TOTAL_POINTS = totalPointsFor(difficulty)
+
+  const score = trackScore(CASES, progress)
+  const rank = rankForTrack(difficulty, score)
+  const solved = trackSolved(CASES, progress)
+  const complete = isTrackComplete(CASES, progress)
+  const unlockedCount = CASES.filter((_, i) => isCaseUnlocked(CASES, i, progress)).length
+
+  const chooseTrack = (id: Difficulty) => {
+    setDifficulty(id)
+    setOpenCaseId(null)
+    setOpenChallengeId(null)
+    try {
+      window.localStorage.setItem(TRACK_KEY, id)
+    } catch {
+      /* ignore */
+    }
+  }
 
   const openCase = useMemo(() => CASES.find((c) => c.id === openCaseId) ?? null, [openCaseId])
   const openChallenge = useMemo(
@@ -122,6 +159,40 @@ export default function BrasshavenFiles() {
           </p>
 
           <SilhouetteScene id="title" height={210} className="mt-7" />
+
+          {/* ------------------------------------------------ pick a difficulty */}
+          <div className="mt-7 space-y-2 text-left">
+            <p className="stencil">Choose your case load</p>
+            {TRACKS.map((t) => {
+              const chosen = t.id === difficulty
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => chooseTrack(t.id)}
+                  className="brass-panel block w-full p-4 text-left transition hover:border-[#d1a942]"
+                  style={chosen ? { borderColor: '#d1a942', background: 'rgba(209,169,66,0.08)' } : undefined}
+                  aria-pressed={chosen}
+                >
+                  <span className="flex items-baseline justify-between gap-3">
+                    <span className="display text-lg text-[#e9dcc3]">{t.name}</span>
+                    <span className="stencil shrink-0" style={{ color: chosen ? '#d1a942' : undefined }}>
+                      {t.cases.length} {t.cases.length === 1 ? 'case' : 'cases'} ·{' '}
+                      {totalPointsFor(t.id)} pts
+                    </span>
+                  </span>
+                  <span className="mt-1 block text-sm text-[#b9ab92]">{t.tagline}</span>
+                  {chosen && (
+                    <span className="mt-2 block text-xs leading-relaxed text-[#7d7364]">
+                      {t.audience}
+                      <br />
+                      <span className="text-[#6f9c8e]">Covers: {t.covers}</span>
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
 
           <div className="divider-gear my-8">
             <span className="text-lg">⚙</span>
@@ -230,7 +301,7 @@ export default function BrasshavenFiles() {
               <p className="stencil">
                 {progress.handle ?? (leaderboardEnabled ? 'Unsigned -- practice run' : 'Board closed -- practice run')}
               </p>
-              <h1 className="display gaslight-title text-xl">The Brasshaven Files</h1>
+              <h1 className="display gaslight-title text-xl">{track.name}</h1>
             </button>
 
             <div className="flex items-center gap-3">
@@ -391,9 +462,28 @@ export default function BrasshavenFiles() {
                 <span className="stencil">The Case Board</span>
               </div>
 
+              <div className="flex flex-wrap items-center gap-2 pb-2">
+                <span className="stencil">Difficulty</span>
+                {TRACKS.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => chooseTrack(t.id)}
+                    className="btn-ghost"
+                    style={
+                      t.id === difficulty
+                        ? { background: 'rgba(209,169,66,0.25)', color: '#e9dcc3', borderColor: '#d1a942' }
+                        : undefined
+                    }
+                  >
+                    {t.name}
+                  </button>
+                ))}
+              </div>
+
               {CASES.map((file, i) => {
-                const unlocked = isCaseUnlocked(i, progress)
-                const { done, total, complete: caseDone } = caseProgress(i, progress)
+                const unlocked = isCaseUnlocked(CASES, i, progress)
+                const { done, total, complete: caseDone } = caseProgress(CASES, i, progress)
 
                 return (
                   <button

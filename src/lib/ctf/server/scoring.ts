@@ -1,6 +1,7 @@
 import 'server-only'
 
-import { ALL_CHALLENGES, pointsFor, type Challenge } from '../cases'
+import { pointsFor, type Challenge } from '../cases'
+import { EVERY_CHALLENGE } from '../tracks'
 
 /**
  * Authoritative scoring.
@@ -11,7 +12,7 @@ import { ALL_CHALLENGES, pointsFor, type Challenge } from '../cases'
  */
 
 export function challengeById(id: string): Challenge | undefined {
-  return ALL_CHALLENGES.find((c) => c.id === id)
+  return EVERY_CHALLENGE.find((c) => c.id === id)
 }
 
 export function awardFor(challenge: Challenge, hintsUsed: number): number {

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { ArrowLeftIcon, ArrowPathIcon, TrophyIcon } from '@heroicons/react/24/outline'
-import { TOTAL_POINTS, rankFor } from '@/lib/ctf/cases'
+import { DEFAULT_TRACK, TRACKS, rankForTrack, totalPointsFor, type Difficulty } from '@/lib/ctf/tracks'
 
 interface Entry {
   rank: number
@@ -32,10 +32,14 @@ export default function LeaderboardPage() {
   const [persistent, setPersistent] = useState(true)
   const [enabled, setEnabled] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [track, setTrack] = useState<Difficulty>(DEFAULT_TRACK)
 
-  const load = async () => {
+  const load = async (which: Difficulty = track) => {
+    setEntries(null)
     try {
-      const response = await fetch('/api/ctf/leaderboard?limit=10', { cache: 'no-store' })
+      const response = await fetch(`/api/ctf/leaderboard?limit=10&track=${which}`, {
+        cache: 'no-store',
+      })
       if (!response.ok) throw new Error('bad response')
       const data = await response.json()
       setEntries(data.entries ?? [])
@@ -49,8 +53,9 @@ export default function LeaderboardPage() {
   }
 
   useEffect(() => {
-    load()
-  }, [])
+    load(track)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [track])
 
   return (
     <div className="ctf-root relative">
@@ -74,6 +79,24 @@ export default function LeaderboardPage() {
 
         <div className="divider-gear my-8">
           <span className="text-lg">⚙</span>
+        </div>
+
+        <div className="mb-6 flex flex-wrap items-center justify-center gap-2">
+          {TRACKS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTrack(t.id)}
+              className="btn-ghost"
+              style={
+                t.id === track
+                  ? { background: 'rgba(209,169,66,0.25)', color: '#e9dcc3', borderColor: '#d1a942' }
+                  : undefined
+              }
+            >
+              {t.name}
+            </button>
+          ))}
         </div>
 
         {!enabled && (
@@ -131,7 +154,7 @@ export default function LeaderboardPage() {
                 <div className="min-w-0 flex-1">
                   <p className="display truncate text-lg text-[#e9dcc3]">{entry.handle}</p>
                   <p className="stencil mt-0.5">
-                    {rankFor(entry.score).title} · {entry.solves}/14 closed
+                    {rankForTrack(track, entry.score).title} · {entry.solves} closed
                     {entry.hintsUsed > 0 && ` · ${entry.hintsUsed} hint${entry.hintsUsed === 1 ? '' : 's'}`}
                     {entry.durationMs > 0 && ` · ${duration(entry.durationMs)}`}
                   </p>
@@ -139,7 +162,7 @@ export default function LeaderboardPage() {
 
                 <div className="shrink-0 text-right">
                   <p className="display text-xl text-[#d1a942]">{entry.score}</p>
-                  <p className="stencil">of {TOTAL_POINTS}</p>
+                  <p className="stencil">of {totalPointsFor(track)}</p>
                 </div>
               </motion.div>
             ))}
@@ -147,7 +170,7 @@ export default function LeaderboardPage() {
         )}
 
         <div className="mt-8 text-center">
-          <button type="button" onClick={load} className="btn-ghost inline-flex items-center gap-2">
+          <button type="button" onClick={() => load(track)} className="btn-ghost inline-flex items-center gap-2">
             <ArrowPathIcon className="h-3.5 w-3.5" />
             Refresh the register
           </button>

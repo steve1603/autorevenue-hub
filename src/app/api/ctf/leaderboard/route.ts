@@ -5,11 +5,13 @@ import { sessionsAvailable } from '@/lib/ctf/server/session'
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: Request) {
-  const requested = Number(new URL(request.url).searchParams.get('limit') ?? 10)
+  const params = new URL(request.url).searchParams
+  const track = params.get('track') ?? undefined
+  const requested = Number(params.get('limit') ?? 10)
   const limit = Number.isFinite(requested) ? Math.min(Math.max(Math.trunc(requested), 1), 50) : 10
 
   const store = getStore()
-  const entries = await store.leaderboard(limit)
+  const entries = await store.leaderboard(limit, track)
 
   return NextResponse.json({
     entries: entries.map((entry, index) => ({

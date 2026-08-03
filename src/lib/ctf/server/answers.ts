@@ -26,6 +26,12 @@ const ANSWER_HASHES: Record<string, string> = {
   'c4-3': 'efe0aff832359c99e2cb5342a5985f7c1e04ab1642036ef871313034e1bc746e',
   'c5-1': '9fa5663d233fda7ed144367e61f13620920c2b8e3bf5cb9e93b51bd079f28775',
   'c5-2': 'b9aab7040ea5c660a65bef9b67c3d6c44ddb0a7621e911ed62f7404693c971dd',
+  'm1-1': 'd19051613008722cf1b6abaa7703558152192310f3ed3aef944d55ba2232380a',
+  'm1-2': 'df17bb1752073e9ea120c331905b6803804ba4aa2087aa8d23b02fcbf8fdca70',
+  'm1-3': '8b6703dca7711befbea274be51bf921c9048c6c539a9429d30ab447394619c1c',
+  'x1-1': '9a535b190486c3b5cd68578138bd08ce450937aefd93e1ecc47629dec0c7d458',
+  'x1-2': '3b874b5c855d5d413942246ddc703f27f306a7ff2945bf9f0c8df9c3ddc40963',
+  'x2-2': '2040e247144b019f4c4ea85105c92bb7b3fe6b116fa017f07f7d569c11009d96',
 }
 
 export function isCorrectFlag(challengeId: string, normalisedFlag: string, hash: (s: string) => string): boolean {

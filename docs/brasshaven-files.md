@@ -24,6 +24,30 @@ technique and then explains it plainly once you have solved it.
   both end screens say plainly that these skills belong on systems you own or are
   authorised to test.
 
+## Difficulty tracks
+
+Three self-contained runs, chosen on the title card. Each has its own cases,
+points, rank ladder and leaderboard, so an experienced player is never made to
+grind through Base64 to reach the interesting material.
+
+| Track | Cases | Points | For |
+|---|---|---|---|
+| **The Brasshaven Files** (novice) | 5 | 2,950 | Complete beginners |
+| **The Iron Meridian** (inspector) | 1 | 750 | Comfortable with the basics |
+| **The Drum Room** (ghost) | 1 | 1,500 | Experienced -- real attacks, no hand-holding |
+
+**Iron Meridian** covers Base32, repeating-key XOR against a known key, and
+zero-width steganography. **The Drum Room** covers recovering an unknown XOR key
+length by Hamming distance and breaking it column by column, factoring a toy RSA
+modulus to recover d, and a two-time pad broken by crib dragging.
+
+Challenge ids are prefixed by track (`c`, `m`, `x`), which is how the server
+works out which leaderboard a solve belongs to without storing it -- no
+migration was needed to add difficulties to an existing database.
+
+The advanced briefs are deliberately terser. The novice track tells you what to
+look for; these two describe what you are holding and leave the rest to you.
+
 ## The cases
 
 | Case | Title | Teaches |

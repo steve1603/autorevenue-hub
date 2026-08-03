@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ALL_CHALLENGES, CASES } from './cases'
+import type { CaseFile } from './cases'
 
 /**
  * Client-side view of progress.
@@ -203,18 +203,34 @@ export function debriefFor(progress: Progress, challengeId: string): string {
   return progress.debriefs[challengeId] ?? ''
 }
 
-/** A case unlocks when every challenge in the previous case is closed. */
-export function isCaseUnlocked(caseIndex: number, progress: Progress): boolean {
+/**
+ * A case unlocks when every challenge in the previous case is closed.
+ * Cases are passed in rather than imported, so each difficulty track gates
+ * independently of the others.
+ */
+export function isCaseUnlocked(cases: CaseFile[], caseIndex: number, progress: Progress): boolean {
   if (caseIndex === 0) return true
-  return CASES[caseIndex - 1].challenges.every((ch) => progress.solved[ch.id] !== undefined)
+  return cases[caseIndex - 1].challenges.every((ch) => progress.solved[ch.id] !== undefined)
 }
 
-export function caseProgress(caseIndex: number, progress: Progress) {
-  const challenges = CASES[caseIndex].challenges
+export function caseProgress(cases: CaseFile[], caseIndex: number, progress: Progress) {
+  const challenges = cases[caseIndex].challenges
   const done = challenges.filter((ch) => progress.solved[ch.id] !== undefined).length
   return { done, total: challenges.length, complete: done === challenges.length }
 }
 
-export function isGameComplete(progress: Progress): boolean {
-  return ALL_CHALLENGES.every((ch) => progress.solved[ch.id] !== undefined)
+/** True when every challenge in the given track is closed. */
+export function isTrackComplete(cases: CaseFile[], progress: Progress): boolean {
+  return cases.every((c) => c.challenges.every((ch) => progress.solved[ch.id] !== undefined))
+}
+
+/** Points banked within one track only. */
+export function trackScore(cases: CaseFile[], progress: Progress): number {
+  return cases
+    .flatMap((c) => c.challenges)
+    .reduce((sum, ch) => sum + (progress.solved[ch.id] ?? 0), 0)
+}
+
+export function trackSolved(cases: CaseFile[], progress: Progress): number {
+  return cases.flatMap((c) => c.challenges).filter((ch) => progress.solved[ch.id] !== undefined).length
 }

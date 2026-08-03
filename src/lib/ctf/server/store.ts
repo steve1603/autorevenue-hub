@@ -12,6 +12,17 @@ import { randomUUID } from 'crypto'
  * serverless invocation gets a fresh process, so scores would evaporate.
  */
 
+/**
+ * Which difficulty a solve belongs to, read straight off the challenge id.
+ * Storing it would need a migration; the prefix already carries the answer.
+ */
+function inTrack(challengeId: string, track: string): boolean {
+  const prefix = challengeId.charAt(0)
+  if (track === 'inspector') return prefix === 'm'
+  if (track === 'ghost') return prefix === 'x'
+  return prefix === 'c'
+}
+
 export interface PlayerRecord {
   id: string
   handle: string
@@ -43,7 +54,8 @@ export interface CtfStore {
   recordHint(playerId: string, challengeId: string): Promise<number>
   /** No-ops if the challenge is already solved, so points cannot be re-banked. */
   recordSolve(playerId: string, challengeId: string, points: number, hintsUsed: number): Promise<void>
-  leaderboard(limit: number): Promise<LeaderboardEntry[]>
+  /** `track` filters to one difficulty, derived from the challenge id prefix. */
+  leaderboard(limit: number, track?: string): Promise<LeaderboardEntry[]>
   readonly persistent: boolean
 }
 
@@ -100,10 +112,12 @@ class MemoryStore implements CtfStore {
     })
   }
 
-  async leaderboard(limit: number): Promise<LeaderboardEntry[]> {
+  async leaderboard(limit: number, track?: string): Promise<LeaderboardEntry[]> {
     return [...this.players.values()]
       .map((player) => {
-        const solves = [...player.solves.values()]
+        const solves = [...player.solves.values()].filter(
+          (s) => !track || inTrack(s.challengeId, track),
+        )
         const times = solves.map((s) => s.solvedAt).sort()
         return {
           handle: player.handle,
@@ -196,14 +210,15 @@ class SupabaseStore implements CtfStore {
     if (error) throw new Error(`could not record solve: ${error.message}`)
   }
 
-  async leaderboard(limit: number): Promise<LeaderboardEntry[]> {
+  async leaderboard(limit: number, track?: string): Promise<LeaderboardEntry[]> {
     const { data, error } = await this.client
       .from('ctf_solves')
-      .select('points, hints_used, solved_at, ctf_players!inner(handle)')
+      .select('challenge_id, points, hints_used, solved_at, ctf_players!inner(handle)')
     if (error || !data) return []
 
     const byHandle = new Map<string, LeaderboardEntry>()
     for (const row of data) {
+      if (track && !inTrack(row.challenge_id as string, track)) continue
       const joined = row.ctf_players as unknown as { handle: string } | { handle: string }[]
       const handle = Array.isArray(joined) ? joined[0]?.handle : joined?.handle
       if (!handle) continue

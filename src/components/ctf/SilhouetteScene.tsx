@@ -771,9 +771,63 @@ const SCENES: Record<string, ReactNode> = {
       <Rain />
     </>
   ),
+
+  /* ------------------------------------------------------- advanced tracks */
+  'case-6': (
+    <>
+      <Sky intensity={0.3} high />
+      <Skyline seed={131} />
+      <Fog />
+      <Ground />
+      {/* A crate on the dock, stencilled and waiting. */}
+      <g fill={SOOT} transform="translate(300 118)">
+        <rect x="0" y="0" width="150" height="96" rx="2" />
+        <rect x="0" y="30" width="150" height="4" fill="#1b1309" />
+        <rect x="0" y="62" width="150" height="4" fill="#1b1309" />
+        <rect x="18" y="12" width="52" height="6" fill={BRASS} opacity="0.28" />
+        <rect x="18" y="76" width="88" height="5" fill={BRASS} opacity="0.18" />
+      </g>
+      <Airship x={600} y={78} scale={0.6} />
+      <LampPost x={150} y={214} scale={0.9} />
+      <Detective x={520} y={128} scale={0.86} flip />
+      <Rain />
+    </>
+  ),
+
+  'case-9': (
+    <>
+      <Sky glow={PATINA} intensity={0.24} />
+      <Ground y={208} />
+      {/* The drum room: memory as machinery. */}
+      {[150, 290, 430, 570, 700].map((x, i) => (
+        <g key={x} transform={`translate(${x} 112)`}>
+          <ellipse cx="0" cy="0" rx="46" ry="70" fill={NEAR} />
+          <ellipse cx="0" cy="0" rx="46" ry="70" fill="none" stroke={PATINA} strokeOpacity="0.28" strokeWidth="2" />
+          <g className={i % 2 ? 'gear-mid' : 'gear-slow'}>
+            <ellipse cx="0" cy="0" rx="30" ry="52" fill="#0b0907" />
+          </g>
+          <circle cx="0" cy="0" r="6" fill={SOOT} />
+        </g>
+      ))}
+      <g fill={SOOT}>
+        <rect x="0" y="0" width="800" height="22" />
+        <rect x="0" y="200" width="800" height="10" />
+      </g>
+      <g className="spark"><circle cx="240" cy="60" r="3" fill={PATINA} /></g>
+      <g className="spark-2"><circle cx="500" cy="52" r="3" fill={PATINA} /></g>
+      <Fog />
+    </>
+  ),
 }
 
 /* ------------------------------------------------------------------ export */
+
+/** Maps a challenge id prefix to the case plate it should borrow. */
+const CASE_OF: Record<string, string> = {
+  c1: 'case-1', c2: 'case-2', c3: 'case-3', c4: 'case-4', c5: 'case-5',
+  m1: 'case-6', m2: 'case-7', m3: 'case-8',
+  x1: 'case-9', x2: 'case-9',
+}
 
 export type SceneId = keyof typeof SCENES
 
@@ -791,7 +845,10 @@ export default function SilhouetteScene({
   height?: number
   className?: string
 }) {
-  const scene = SCENES[id] ?? SCENES.title
+  // c2-3 -> case-2, m1-1 -> case-6, x1-2 -> case-9. A challenge without its own
+  // plate borrows its case's rather than dropping to the title card.
+  const fallback = CASE_OF[id.slice(0, 2)]
+  const scene = SCENES[id] ?? (fallback ? SCENES[fallback] : undefined) ?? SCENES.title
 
   return (
     <div className={`scene-frame ${className}`} style={{ height }} aria-hidden="true">
