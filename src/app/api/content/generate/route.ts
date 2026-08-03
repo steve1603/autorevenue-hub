@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+// Route segment config: the App Router way to set the function timeout.
+// Vercel's `functions` glob in vercel.json does not apply to route handlers.
+export const maxDuration = 30
+
 // Simulated AI content generation (replace with actual OpenAI API in production)
 export async function POST(request: NextRequest) {
   try {

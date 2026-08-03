@@ -1,0 +1,294 @@
+/*
+ * The Brasshaven Files -- gaslamp noir theme.
+ *
+ * Scoped to .ctf-root so nothing here leaks into the rest of the site. All
+ * texture is done with gradients and shadows; there are no image assets to
+ * ship or to 404.
+ */
+
+.ctf-root {
+  --soot: #0a0807;
+  --coal: #14100c;
+  --iron: #221a14;
+  --iron-light: #2f2419;
+  --brass: #d1a942;
+  --brass-dim: #8f7330;
+  --copper: #b4713f;
+  --patina: #5c8f80;
+  --parchment: #e9dcc3;
+  --parchment-dim: #b9ab92;
+  --blood: #a03a26;
+
+  --font-display: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+  min-height: 100vh;
+  color: var(--parchment);
+  font-family: var(--font-display);
+  background-color: var(--soot);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(209, 169, 66, 0.13), transparent 70%),
+    radial-gradient(ellipse 60% 40% at 15% 100%, rgba(92, 143, 128, 0.08), transparent 70%),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.015) 0px,
+      rgba(255, 255, 255, 0.015) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+}
+
+/* The fog layer: slow, cheap, and does more for the mood than anything else. */
+.ctf-fog {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    radial-gradient(ellipse 50% 30% at 20% 30%, rgba(233, 220, 195, 0.045), transparent 70%),
+    radial-gradient(ellipse 40% 25% at 80% 60%, rgba(233, 220, 195, 0.035), transparent 70%);
+  animation: ctf-drift 45s ease-in-out infinite alternate;
+}
+
+@keyframes ctf-drift {
+  from { transform: translate3d(-3%, 0, 0) scale(1); }
+  to   { transform: translate3d(3%, -2%, 0) scale(1.1); }
+}
+
+/* --------------------------------------------------------------- surfaces */
+
+/*
+ * Deliberately sets no `position`: this file loads after Tailwind's utilities,
+ * so a `position` here would beat `fixed`/`absolute` utilities on the same
+ * element. `.riveted` establishes the containing block for its own rivets.
+ */
+.brass-panel {
+  background:
+    linear-gradient(160deg, rgba(47, 36, 25, 0.95), rgba(20, 16, 12, 0.97));
+  border: 1px solid rgba(209, 169, 66, 0.28);
+  border-radius: 3px;
+  box-shadow:
+    inset 0 1px 0 rgba(209, 169, 66, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.6),
+    0 12px 30px rgba(0, 0, 0, 0.55);
+}
+
+/* Four corner rivets, drawn with a single background declaration. */
+.riveted {
+  position: relative;
+}
+
+.riveted::after {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  pointer-events: none;
+  border-radius: 2px;
+  background-repeat: no-repeat;
+  background-size: 6px 6px;
+  background-position: left top, right top, left bottom, right bottom;
+  background-image:
+    radial-gradient(circle, var(--brass-dim) 35%, transparent 60%),
+    radial-gradient(circle, var(--brass-dim) 35%, transparent 60%),
+    radial-gradient(circle, var(--brass-dim) 35%, transparent 60%),
+    radial-gradient(circle, var(--brass-dim) 35%, transparent 60%);
+  opacity: 0.7;
+}
+
+.paper {
+  background:
+    linear-gradient(180deg, #e9dcc3, #d9c9a8);
+  color: #241a12;
+  border-radius: 2px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.5) inset,
+    0 10px 24px rgba(0, 0, 0, 0.5);
+}
+
+.paper-aged {
+  background-image:
+    radial-gradient(ellipse at 12% 8%, rgba(120, 80, 30, 0.16), transparent 45%),
+    radial-gradient(ellipse at 88% 92%, rgba(90, 60, 20, 0.14), transparent 45%);
+}
+
+/* ------------------------------------------------------------- typography */
+
+.display {
+  font-family: var(--font-display);
+  letter-spacing: 0.02em;
+}
+
+.stencil {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
+  font-size: 0.68rem;
+  color: var(--brass-dim);
+}
+
+.gaslight-title {
+  color: var(--brass);
+  text-shadow:
+    0 0 22px rgba(209, 169, 66, 0.35),
+    0 2px 0 rgba(0, 0, 0, 0.7);
+}
+
+/* A slow flicker, like a lamp that needs its mantle changed. */
+.flicker {
+  animation: ctf-flicker 7s linear infinite;
+}
+
+@keyframes ctf-flicker {
+  0%, 42%, 46%, 100% { opacity: 1; }
+  43% { opacity: 0.72; }
+  44.5% { opacity: 0.92; }
+  45% { opacity: 0.6; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flicker, .ctf-fog { animation: none; }
+}
+
+/* ---------------------------------------------------------------- blocks */
+
+.cipher-block {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  line-height: 1.75;
+  word-break: break-all;
+  color: #cbb98f;
+  background: rgba(6, 5, 4, 0.72);
+  border: 1px solid rgba(209, 169, 66, 0.2);
+  border-radius: 2px;
+  padding: 0.9rem 1rem;
+}
+
+.terminal-shell {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  line-height: 1.6;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(92, 143, 128, 0.09), transparent 65%),
+    #050807;
+  border: 1px solid rgba(92, 143, 128, 0.32);
+  color: #8fd3bd;
+  text-shadow: 0 0 8px rgba(92, 143, 128, 0.45);
+  border-radius: 3px;
+}
+
+.terminal-shell input {
+  font-family: var(--font-mono);
+  color: #b8f0dc;
+}
+
+/* --------------------------------------------------------------- controls */
+
+.btn-brass {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.7rem;
+  color: #1b1409;
+  background: linear-gradient(180deg, #e0bd5c, #a8862c);
+  border: 1px solid #6d5619;
+  border-radius: 2px;
+  padding: 0.6rem 1.1rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 240, 200, 0.65),
+    0 3px 0 #5c4813,
+    0 6px 14px rgba(0, 0, 0, 0.55);
+  transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+}
+
+.btn-brass:hover:not(:disabled) {
+  filter: brightness(1.09);
+}
+
+.btn-brass:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: inset 0 1px 0 rgba(255, 240, 200, 0.5), 0 0 0 #5c4813;
+}
+
+.btn-brass:disabled {
+  filter: grayscale(0.75) brightness(0.65);
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.68rem;
+  color: var(--brass);
+  background: rgba(209, 169, 66, 0.07);
+  border: 1px solid rgba(209, 169, 66, 0.4);
+  border-radius: 2px;
+  padding: 0.5rem 0.95rem;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: rgba(209, 169, 66, 0.17);
+}
+
+.btn-ghost:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.field {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--parchment);
+  background: rgba(6, 5, 4, 0.75);
+  border: 1px solid rgba(209, 169, 66, 0.3);
+  border-radius: 2px;
+  padding: 0.65rem 0.85rem;
+  width: 100%;
+}
+
+.field:focus {
+  outline: none;
+  border-color: var(--brass);
+  box-shadow: 0 0 0 1px rgba(209, 169, 66, 0.35), 0 0 18px rgba(209, 169, 66, 0.15);
+}
+
+.field::placeholder {
+  color: rgba(233, 220, 195, 0.3);
+}
+
+/* ------------------------------------------------------------------ misc */
+
+.stamp {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--blood);
+  border: 2px solid var(--blood);
+  border-radius: 3px;
+  padding: 0.3rem 0.7rem;
+  transform: rotate(-6deg);
+  opacity: 0.85;
+}
+
+.divider-gear {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  color: var(--brass-dim);
+}
+
+.divider-gear::before,
+.divider-gear::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(209, 169, 66, 0.4), transparent);
+}
+
+.ctf-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+.ctf-scroll::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.4); }
+.ctf-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #7a6224, #4a3a15);
+  border-radius: 5px;
+}
