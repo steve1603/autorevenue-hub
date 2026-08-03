@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { audio } from '@/lib/ctf/audio'
 
 interface Line {
   text: string
@@ -63,6 +64,7 @@ export default function Terminal({ host }: { host: string }) {
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       if (busy) return
+      audio.cue('key')
       const submitted = input
       run(submitted)
       if (submitted.trim()) setHistory((h) => [submitted.trim(), ...h])

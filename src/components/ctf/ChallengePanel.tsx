@@ -11,6 +11,7 @@ import {
 import { FLAG_FORMAT, pointsFor, type Challenge, type ToolId } from '@/lib/ctf/cases'
 import { critiqueFlag } from '@/lib/ctf/verify'
 import type { SubmitResult } from '@/lib/ctf/progress'
+import { audio } from '@/lib/ctf/audio'
 import EvidenceBoard from './EvidenceBoard'
 import SilhouetteScene from './SilhouetteScene'
 
@@ -101,6 +102,7 @@ export default function ChallengePanel({
     // Catch obvious format mistakes before spending a request on them.
     const critique = critiqueFlag(entry)
     if (critique) {
+      audio.cue('reject')
       setFeedback(critique)
       setShake((s) => s + 1)
       return
@@ -111,10 +113,12 @@ export default function ChallengePanel({
     setChecking(false)
 
     if (result.correct) {
+      audio.cue('solve')
       setFeedback(null)
       return
     }
 
+    audio.cue('reject')
     setFeedback(
       result.error ?? 'That is not the countersign. Read it again -- and read it exactly.',
     )
@@ -126,6 +130,7 @@ export default function ChallengePanel({
     const result = await onRevealHint()
     setHintPending(false)
     if (result.error) setFeedback(result.error)
+    else audio.cue('hint')
   }
 
   return (

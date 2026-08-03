@@ -132,6 +132,40 @@ the type checker:
    Use viewBox units with `transform-box: view-box`; use
    `transform-box: fill-box` with keyword origins for anything that rotates.
 
+## Sound
+
+A synthesised gaslamp score, generated with the Web Audio API. Like the scenes
+there are no assets: no audio files to ship, no requests to fail, no licences to
+track. The whole soundtrack is a few kilobytes of code.
+
+**The bed** is a slow drone on D with a fifth above it, a whisper of filtered
+noise for rain, and a sparse melody -- one note every 3-9 seconds drawn from D
+natural minor, weighted towards the low end so it reads as atmosphere rather than
+a tune anyone has to listen to. The ambience shifts with the setting: interiors
+(the pneumatic post, the foundry) muffle the low-pass, and Case V opens it out
+into dawn.
+
+**Cues** mark the moments that matter -- a rising minor triad when a countersign
+is accepted, a dull dropping thud when it is refused, paper and a brass tap for a
+hint, a telegraph click on every terminal command, a heavy clunk and ringing
+metal when the eighth lock retracts, a distant bell when a new case opens.
+
+### Two things it deliberately does
+
+- **Nothing plays until asked.** Sound is off by default and the `AudioContext`
+  is not even constructed until the toggle is pressed. Browsers block audio
+  outside a user gesture anyway, but unannounced noise is obnoxious regardless.
+  The preference is stored, and a returning player who had it on gets the score
+  back on their first click rather than being silently ignored.
+- **Cues duck the music.** Measured without ducking, the solve chord peaked at
+  0.127 against a 0.119 bed -- it registered as slightly more noise instead of as
+  a moment. The music now steps back to 35% for the length of a cue, and the
+  chord lands at 0.143 against a 0.091 bed.
+
+Levels were verified by splicing an analyser in front of the destination and
+measuring real output: the bed sits at ~0.03 RMS, cues peak around 0.14, and
+nothing clips.
+
 ## How it is put together
 
 ```
@@ -141,6 +175,7 @@ src/app/ctf/
   ctf.css         gaslamp theme, scoped to .ctf-root (no image assets)
   scenes.css      silhouette scene keyframes
 src/lib/ctf/
+  audio.ts        synthesised score and effects (Web Audio, no assets)
   cases.ts        narrative and evidence -- the client-safe half only
   ciphers.ts      pure encode/decode helpers, incl. a from-scratch SHA-256
   verify.ts       flag normalisation and checking
@@ -150,6 +185,7 @@ src/app/api/ctf/
   register/ submit/ hint/ state/ terminal/ vault/ leaderboard/
 src/components/ctf/
   SilhouetteScene.tsx     animated SVG scene for every case and puzzle
+  SoundToggle.tsx         the on/off control, wired to the audio engine
   DifferenceEngine.tsx    the decoder workbench (slide-over drawer)
   ChallengePanel.tsx      brief, evidence, hints, flag entry, debrief
   EvidenceBoard.tsx       renders each evidence kind

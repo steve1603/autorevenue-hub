@@ -53,8 +53,10 @@ have never done a CTF. Five cases, 14 challenges, covering encoding, web
 reconnaissance, classical ciphers, hash cracking and SQL injection — each one
 followed by a plain-English explanation of the real technique behind it.
 
-Every case and puzzle opens with an animated silhouette scene -- inline SVG,
-no image assets, and fully still under `prefers-reduced-motion`.
+Every case and puzzle opens with an animated silhouette scene, backed by a
+synthesised gaslamp score -- inline SVG and Web Audio, no image or audio assets
+at all. Motion stops under `prefers-reduced-motion`; sound is off until asked
+for.
 
 Includes a built-in decoder workbench, a simulated terminal, a deliberately
 injectable login, and a **leaderboard** at `/ctf/leaderboard` where players sign

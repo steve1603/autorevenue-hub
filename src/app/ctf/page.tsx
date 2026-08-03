@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -25,6 +25,8 @@ import {
 import DifferenceEngine from '@/components/ctf/DifferenceEngine'
 import ChallengePanel from '@/components/ctf/ChallengePanel'
 import SilhouetteScene from '@/components/ctf/SilhouetteScene'
+import SoundToggle from '@/components/ctf/SoundToggle'
+import { audio, type Mood } from '@/lib/ctf/audio'
 
 const TOTAL_CHALLENGES = CASES.reduce((n, c) => n + c.challenges.length, 0)
 
@@ -40,6 +42,7 @@ export default function BrasshavenFiles() {
   const [claiming, setClaiming] = useState(false)
 
   const score = scoreOf(progress)
+  const unlockedCount = CASES.filter((_, i) => isCaseUnlocked(i, progress)).length
   const rank = rankFor(score)
   const solved = solvedCount(progress)
   const complete = isGameComplete(progress)
@@ -49,6 +52,26 @@ export default function BrasshavenFiles() {
     () => openCase?.challenges.find((ch) => ch.id === openChallengeId) ?? null,
     [openCase, openChallengeId],
   )
+
+  // The ambient bed shifts with the setting: streets are open, the foundry and
+  // the corridors are muffled, the finale opens out into dawn.
+  const mood: Mood =
+    openCaseId === 'case-2' || openCaseId === 'case-4'
+      ? 'interior'
+      : openCaseId === 'case-5'
+        ? 'dawn'
+        : 'street'
+
+  useEffect(() => {
+    audio.setMood(mood)
+  }, [mood])
+
+  // Ring once when a new case opens, but not on first render.
+  const [knownUnlocked, setKnownUnlocked] = useState<number | null>(null)
+  useEffect(() => {
+    if (knownUnlocked !== null && unlockedCount > knownUnlocked) audio.cue('unlock')
+    setKnownUnlocked(unlockedCount)
+  }, [unlockedCount, knownUnlocked])
 
   const openTool = (tool: ToolId | null) => {
     setRequestedTool(tool)
@@ -128,9 +151,12 @@ export default function BrasshavenFiles() {
                 configured, so scores cannot be recorded. Every case is still fully playable and
                 flags are still checked -- nothing is kept afterwards.
               </p>
-              <button type="button" onClick={start} className="btn-brass mt-5 px-10 py-4 text-sm">
-                Open the first file
-              </button>
+              <div className="mt-5 flex flex-wrap items-center gap-3">
+                <button type="button" onClick={start} className="btn-brass px-10 py-4 text-sm">
+                  Open the first file
+                </button>
+                <SoundToggle />
+              </div>
             </div>
           ) : progress.handle ? (
             <div className="mt-7">
@@ -171,6 +197,7 @@ export default function BrasshavenFiles() {
                   <TrophyIcon className="h-3.5 w-3.5" />
                   Honours board
                 </Link>
+                <SoundToggle />
               </div>
             </form>
           )}
@@ -220,6 +247,7 @@ export default function BrasshavenFiles() {
                   Board
                 </Link>
               )}
+              <SoundToggle />
               <button
                 type="button"
                 onClick={() => openTool(null)}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { audio } from '@/lib/ctf/audio'
 
 /**
  * A login form that is vulnerable on purpose.
@@ -38,10 +39,13 @@ export default function VaultDoor({ host }: { host: string }) {
       const data = await response.json()
 
       if (data.result === 'open') {
+        audio.cue('vault')
         setResult({ kind: 'open', secret: data.secret, keepers: data.keepers ?? [] })
       } else if (data.result === 'fault') {
+        audio.cue('reject')
         setResult({ kind: 'error', detail: data.detail })
       } else {
+        audio.cue('reject')
         setResult({ kind: 'denied' })
       }
     } catch {
